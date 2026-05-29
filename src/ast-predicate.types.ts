@@ -34,3 +34,60 @@ export type AstPredicateComparisonNode<TColumn extends string = string> = {
 export type AstPredicateNode<TColumn extends string = string> =
     | AstPredicateLogicalNode<TColumn>
     | AstPredicateComparisonNode<TColumn>;
+
+export type AstPredicateColumnOf<TModel extends object> =
+    Extract<keyof TModel, string>;
+
+export type AstPredicateBuilder<TColumn extends string> = {
+    readonly and: (
+        ...conditions: readonly AstPredicateNode<TColumn>[]
+    ) => AstPredicateLogicalNode<TColumn>;
+
+    readonly or: (
+        ...conditions: readonly AstPredicateNode<TColumn>[]
+    ) => AstPredicateLogicalNode<TColumn>;
+
+    readonly eq: (
+        column: TColumn,
+        value: AstPredicatePrimitive,
+    ) => AstPredicateComparisonNode<TColumn>;
+
+    readonly neq: (
+        column: TColumn,
+        value: AstPredicatePrimitive,
+    ) => AstPredicateComparisonNode<TColumn>;
+
+    readonly gt: (
+        column: TColumn,
+        value: Exclude<AstPredicatePrimitive, boolean | null>,
+    ) => AstPredicateComparisonNode<TColumn>;
+
+    readonly gte: (
+        column: TColumn,
+        value: Exclude<AstPredicatePrimitive, boolean | null>,
+    ) => AstPredicateComparisonNode<TColumn>;
+
+    readonly lt: (
+        column: TColumn,
+        value: Exclude<AstPredicatePrimitive, boolean | null>,
+    ) => AstPredicateComparisonNode<TColumn>;
+
+    readonly lte: (
+        column: TColumn,
+        value: Exclude<AstPredicatePrimitive, boolean | null>,
+    ) => AstPredicateComparisonNode<TColumn>;
+
+    readonly inArray: (
+        column: TColumn,
+        value: readonly AstPredicatePrimitive[],
+    ) => AstPredicateComparisonNode<TColumn>;
+
+    readonly notInArray: (
+        column: TColumn,
+        value: readonly AstPredicatePrimitive[],
+    ) => AstPredicateComparisonNode<TColumn>;
+
+    readonly isNull: (column: TColumn) => AstPredicateComparisonNode<TColumn>;
+
+    readonly isNotNull: (column: TColumn) => AstPredicateComparisonNode<TColumn>;
+};
