@@ -1,0 +1,59 @@
+{
+  "name": "ast-predicate",
+  "version": "0.1.0",
+  "description": "Framework-agnostic TypeScript predicate AST utilities for building, validating, and transforming filter expressions.",
+  "type": "module",
+  "license": "MIT",
+  "author": "ThisMeansMore",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ThisMeansMore/ast-predicate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ThisMeansMore/ast-predicate/issues"
+  },
+  "homepage": "https://github.com/ThisMeansMore/ast-predicate#readme",
+  "keywords": [
+    "ast",
+    "predicate",
+    "filter",
+    "typescript",
+    "query",
+    "expression"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rm -rf dist coverage",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
