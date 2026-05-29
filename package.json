@@ -1,6 +1,6 @@
 {
   "name": "ast-predicate",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Framework-agnostic TypeScript predicate AST utilities for building, validating, and transforming filter expressions.",
   "type": "module",
   "license": "MIT",
@@ -27,6 +27,11 @@
       "types": "./dist/esm/index.d.ts",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
+    },
+    "./test-utils": {
+      "types": "./dist/esm/test-utils/index.d.ts",
+      "import": "./dist/esm/test-utils/index.js",
+      "require": "./dist/cjs/test-utils/index.js"
     }
   },
   "main": "./dist/cjs/index.js",

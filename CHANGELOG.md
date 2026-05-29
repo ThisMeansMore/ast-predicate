@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+Added:
+
+- Added `ast-predicate/test-utils` subpath.
+- Added framework-light compiled SQL assertion helpers via `createCompiledSqlExpect(expect)`.
+
 ## 0.1.1
 
 Changed:
