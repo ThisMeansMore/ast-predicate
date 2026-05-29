@@ -1,6 +1,6 @@
 {
   "name": "ast-predicate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Framework-agnostic TypeScript predicate AST utilities for building, validating, and transforming filter expressions.",
   "type": "module",
   "license": "MIT",
@@ -24,12 +24,14 @@
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
     }
   },
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
   "files": [
     "dist",
     "README.md",
@@ -37,7 +39,10 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "npm run clean && npm run build:esm && npm run build:cjs && npm run build:cjs-package",
+    "build:esm": "tsc -p tsconfig.build.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:cjs-package": "printf '{\"type\":\"commonjs\"}\\n' > dist/cjs/package.json",
     "clean": "rm -rf dist coverage",
     "test": "vitest run",
     "test:watch": "vitest",

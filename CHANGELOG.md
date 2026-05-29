@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+Changed:
+
+- Published package as dual ESM/CommonJS output.
+- Added CommonJS `require` export for Jest/CommonJS consumers.
+
 ## 0.1.0
 
 Initial public package structure.
