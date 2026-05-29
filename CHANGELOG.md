@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+Changed:
+
+- Documented model-bound `AstPredicate<TModel>()` usage.
+- Documented destructuring of model-bound builders.
+- Documented `ast-predicate/test-utils`.
+- Added JSDoc to the exported `AstPredicate` entry point.
+
 ## 0.2.0
 
 Added:

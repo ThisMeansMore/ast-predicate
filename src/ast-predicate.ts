@@ -74,6 +74,45 @@ type AstPredicateStatic = {
     readonly collectColumns: typeof collectAstPredicateColumns;
 };
 
+/**
+ * Public builder and utility entry point for creating predicate AST nodes.
+ *
+ * The root object can be used directly when column names do not need to be
+ * bound to a specific model:
+ *
+ * ```ts
+ * const predicate = AstPredicate.and(
+ *     AstPredicate.eq('status', 'ACTIVE'),
+ *     AstPredicate.isNull('deletedAt'),
+ * );
+ * ```
+ *
+ * For column-name type safety, call `AstPredicate<TModel>()` and destructure
+ * the returned model-bound builders:
+ *
+ * ```ts
+ * type EditionTable = {
+ *     code: string;
+ *     TenantCode: string;
+ *     ProductCode: string;
+ *     deletedAt: Date | null;
+ * };
+ *
+ * const { and, eq, isNull } = AstPredicate<EditionTable>();
+ *
+ * const predicate = and(
+ *     eq('ProductCode', 'product-1'),
+ *     isNull('deletedAt'),
+ * );
+ *
+ * // Type error: "notExists" is not a key of EditionTable.
+ * isNull('notExists');
+ * ```
+ *
+ * The model-bound builder currently validates column names only. It does not
+ * yet validate that comparison values match the exact property type of the
+ * selected column.
+ */
 export const AstPredicate = Object.assign(
     <TModel extends object>() =>
         createAstPredicateForColumns<AstPredicateColumnOf<TModel>>(),
