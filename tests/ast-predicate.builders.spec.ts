@@ -329,14 +329,14 @@ describe("ast predicate builders", () => {
       },
       slug_unique: {
         columns: ["workspaceId", "categoryId", "slug"],
-        predicate: ({ eb }) => eb("deletedAt", "is", null),
+        where: articleTable.where(({ eb }) => eb("deletedAt", "is", null)),
       },
       nullable_description_unique: {
         columns: ["workspaceId", "categoryId", "description"],
       },
       published_slug_unique: {
         columns: ["workspaceId", "categoryId", "slug"],
-        predicate: ({ eb, and, or }) =>
+        where: articleTable.where(({ eb, and, or }) =>
           and([
             eb("deletedAt", "is", null),
             or([
@@ -344,10 +344,13 @@ describe("ast predicate builders", () => {
               eb("status", "=", "PUBLISHED"),
             ]),
           ]),
+        ),
       },
       category_ref_unique: {
         columns: ["workspaceId", "categoryId", "slug"],
-        predicate: ({ eb, ref }) => eb("categoryId", "=", ref("id")),
+        where: articleTable.where(({ eb, ref }) =>
+          eb("categoryId", "=", ref("id")),
+        ),
       },
     });
 
@@ -400,7 +403,7 @@ describe("ast predicate builders", () => {
     const articleUniqueIndexes = articleTable.uniqueIndexes({
       published_slug_unique: {
         columns: ["workspaceId", "categoryId", "slug"],
-        predicate: ({ eb, and, or }) =>
+        where: articleTable.where(({ eb, and, or }) =>
           and([
             eb("deletedAt", "is", null),
             or([
@@ -408,10 +411,13 @@ describe("ast predicate builders", () => {
               eb("status", "=", "PUBLISHED"),
             ]),
           ]),
+        ),
       },
       category_ref_unique: {
         columns: ["workspaceId", "categoryId", "slug"],
-        predicate: ({ eb, ref }) => eb("categoryId", "=", ref("id")),
+        where: articleTable.where(({ eb, ref }) =>
+          eb("categoryId", "=", ref("id")),
+        ),
       },
     });
 
@@ -419,7 +425,7 @@ describe("ast predicate builders", () => {
 
     expect(
       resolveAstPredicateInput(
-        articleUniqueIndexes.published_slug_unique.predicate,
+        articleUniqueIndexes.published_slug_unique.where,
         eb,
       ),
     ).toEqual({
@@ -473,7 +479,7 @@ describe("ast predicate builders", () => {
 
     expect(
       resolveAstPredicateInput(
-        articleUniqueIndexes.category_ref_unique.predicate,
+        articleUniqueIndexes.category_ref_unique.where,
         eb,
       ),
     ).toEqual({
@@ -538,7 +544,7 @@ describe("ast predicate builders", () => {
       },
       type_and_number: {
         columns: ["type", "documentNumber"],
-        predicate: ({ eb }) => eb("deletedAt", "is not", null),
+        where: billing.where(({ eb }) => eb("deletedAt", "is not", null)),
       },
     });
 
@@ -550,7 +556,7 @@ describe("ast predicate builders", () => {
 
     expect(
       resolveAstPredicateInput(
-        uniqueIndexes.type_and_number.predicate,
+        uniqueIndexes.type_and_number.where,
         billing.expressionBuilder(),
       ),
     ).toEqual({
@@ -574,5 +580,63 @@ describe("ast predicate builders", () => {
     // @ts-expect-error - pkey columns must stay narrowed to "code"
     const invalidPKeyColumn: PKeyColumn = "deletedAt";
     expect(invalidPKeyColumn).toBe("deletedAt");
+  });
+
+  it("keeps unique index predicate callback typed for mapped database tables", () => {
+    type Generated<T> = T & { readonly __generated?: unique symbol };
+
+    type RawDatabase = {
+      Billing: {
+        code: Generated<string>;
+        type: string;
+        documentNumber: string;
+        deletedAt: Date | null;
+      };
+    };
+
+    type RawDatabaseTableName = Extract<keyof RawDatabase, string>;
+
+    type RowOfTable<TTable extends RawDatabaseTableName> = {
+      [TColumn in keyof RawDatabase[TTable]]: RawDatabase[TTable][TColumn] extends Generated<
+        infer TValue
+      >
+        ? TValue
+        : RawDatabase[TTable][TColumn];
+    };
+
+    type PredicateDatabase = {
+      [TTable in RawDatabaseTableName]: RowOfTable<TTable>;
+    };
+
+    const db = createAstPredicateDatabase<PredicateDatabase>();
+    const billing = db.table("Billing");
+
+    const uniqueIndexes = billing.uniqueIndexes({
+      pkey: {
+        columns: ["code"],
+      },
+      type_and_number: {
+        columns: ["type", "documentNumber"],
+        where: billing.where(({ eb }) => eb("deletedAt", "is not", null)),
+      },
+    });
+
+    expect(
+      resolveAstPredicateInput(
+        uniqueIndexes.type_and_number.where,
+        billing.expressionBuilder(),
+      ),
+    ).toEqual({
+      type: "binary",
+      left: {
+        type: "ref",
+        ref: "deletedAt",
+      },
+      op: "is not",
+      right: {
+        type: "value",
+        value: null,
+      },
+    });
   });
 });

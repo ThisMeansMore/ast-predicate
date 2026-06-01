@@ -122,7 +122,7 @@ export type AstPredicateTableUniqueIndex<
     readonly AstPredicateColumnRef<TTable>[],
 > = {
   readonly columns: TColumns;
-  readonly predicate?: AstPredicateInput<AstPredicateColumnRef<TTable>>;
+  readonly predicate?: AstPredicateNode<AstPredicateColumnRef<TTable>>;
 };
 
 export type AstPredicateTableUniqueIndexes<TTable extends object> = Record<

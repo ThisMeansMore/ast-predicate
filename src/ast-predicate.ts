@@ -93,6 +93,22 @@ type AstPredicateStatic = {
  * );
  * ```
  *
+ * For table-scoped metadata, build predicates with the table builder first
+ * and store the resulting AST node in the metadata object:
+ *
+ * ```ts
+ * const articles = db.table('Article');
+ *
+ * const uniqueIndexes = articles.uniqueIndexes({
+ *     slug_unique: {
+ *         columns: ['workspaceId', 'categoryId', 'slug'],
+ *         where: articles.where(({ eb }) =>
+ *             eb('deletedAt', 'is', null),
+ *         ),
+ *     },
+ * });
+ * ```
+ *
  * Optional aliases can be added type-only:
  *
  * ```ts

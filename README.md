@@ -22,7 +22,7 @@ The builder syntax is intentionally SQL/Kysely-like. The goal is to keep the dev
 
 ```bash
 npm install ast-predicate
-````
+```
 
 ## Core idea
 
@@ -218,6 +218,8 @@ The generated AST keeps the alias strings as given.
 
 The database builder can create table-scoped metadata helpers. The first supported helper is `uniqueIndexes`.
 
+Use the table builder to create both the unique-index metadata and any predicate used by that metadata.
+
 ```ts
 import { createAstPredicateDatabase } from 'ast-predicate';
 
@@ -237,55 +239,47 @@ type PredicateTestDatabase = {
 };
 
 const predicateDb = createAstPredicateDatabase<PredicateTestDatabase>();
+const articles = predicateDb.table('schema.Articles');
 
-const articleUniqueIndexes = predicateDb
-    .table('schema.Articles')
-    .uniqueIndexes({
-        pkey: {
-            columns: ['id'],
-        },
-        slug_unique: {
-            columns: ['workspaceId', 'categoryId', 'slug'],
-            predicate: ({ eb }) => eb('deletedAt', 'is', null),
-        },
-        nullable_description_unique: {
-            columns: ['workspaceId', 'categoryId', 'description'],
-        },
-        published_slug_unique: {
-            columns: ['workspaceId', 'categoryId', 'slug'],
-            predicate: ({ eb, and, or }) =>
-                and([
-                    eb('deletedAt', 'is', null),
-                    or([
-                        eb('publishedAt', 'is not', null),
-                        eb('status', '=', 'PUBLISHED'),
-                    ]),
+const articleUniqueIndexes = articles.uniqueIndexes({
+    pkey: {
+        columns: ['id'],
+    },
+    slug_unique: {
+        columns: ['workspaceId', 'categoryId', 'slug'],
+        where: articles.where(({ eb }) =>
+            eb('deletedAt', 'is', null),
+        ),
+    },
+    nullable_description_unique: {
+        columns: ['workspaceId', 'categoryId', 'description'],
+    },
+    published_slug_unique: {
+        columns: ['workspaceId', 'categoryId', 'slug'],
+        where: articles.where(({ eb, and, or }) =>
+            and([
+                eb('deletedAt', 'is', null),
+                or([
+                    eb('publishedAt', 'is not', null),
+                    eb('status', '=', 'PUBLISHED'),
                 ]),
-        },
-        category_ref_unique: {
-            columns: ['workspaceId', 'categoryId', 'slug'],
-            predicate: ({ eb, ref }) => eb('categoryId', '=', ref('id')),
-        },
-    });
+            ]),
+        ),
+    },
+    category_ref_unique: {
+        columns: ['workspaceId', 'categoryId', 'slug'],
+        where: articles.where(({ eb, ref }) =>
+            eb('categoryId', '=', ref('id')),
+        ),
+    },
+});
 ```
 
-`uniqueIndexes()` preserves the metadata object as-is. Predicate callbacks are not resolved automatically.
+`uniqueIndexes()` preserves the metadata object as-is. Predicate values should be AST nodes created with the same table builder, usually through `table.where(...)`.
 
-Use `resolveAstPredicateInput` when a consumer needs the AST node.
+This keeps column lists narrow for unique-index filter typing, while predicates can still reference any column from the table.
 
-```ts
-import { resolveAstPredicateInput } from 'ast-predicate';
-
-const articleTable = predicateDb.table('schema.Articles');
-const eb = articleTable.expressionBuilder();
-
-const predicate = resolveAstPredicateInput(
-    articleUniqueIndexes.slug_unique.predicate,
-    eb,
-);
-```
-
-This makes the metadata useful both as a typed declaration and as adapter input.
+The resulting metadata is useful as adapter input. For example, an adapter can read `columns` to build unique-index filters and use `predicate` as an already-built AST node.
 
 ## Namespace API
 
@@ -328,6 +322,23 @@ and
 or
 not
 ```
+
+For table metadata such as `uniqueIndexes()`, prefer resolving predicates before storing them in the metadata object:
+
+```ts
+const articles = predicateDb.table('schema.Articles');
+
+const indexes = articles.uniqueIndexes({
+    slug_unique: {
+        columns: ['workspaceId', 'categoryId', 'slug'],
+        where: articles.where(({ eb }) =>
+            eb('deletedAt', 'is', null),
+        ),
+    },
+});
+```
+
+This avoids relying on nested callback inference inside large metadata objects and keeps the metadata shape simple for adapters.
 
 ## AST node shape
 
@@ -421,12 +432,12 @@ See [test utilities documentation](./docs/test-utils.md) for examples.
 
 The package currently contains:
 
-* framework-agnostic predicate AST types
-* typed expression builders
-* table-scoped metadata helpers
-* database-scoped reference helpers
-* runtime AST assertions
-* optional PostgreSQL-oriented test utilities
+- framework-agnostic predicate AST types
+- typed expression builders
+- table-scoped metadata helpers
+- database-scoped reference helpers
+- runtime AST assertions
+- optional PostgreSQL-oriented test utilities
 
 The package intentionally does not execute queries and does not provide database connectivity.
 

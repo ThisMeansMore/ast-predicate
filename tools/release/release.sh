@@ -4,12 +4,62 @@ set -euo pipefail
 
 RELEASE_TYPE="${1:-}"
 VERSION_BUMPED=""
+CHANGELOG_FILE="CHANGELOG.md"
+RELEASE_NOTES_FILE=""
 
 rollback_version_bump() {
   if [[ -n "$VERSION_BUMPED" ]]; then
     echo "==> Rolling back local version bump"
-    git checkout -- package.json package-lock.json 2>/dev/null || git checkout -- package.json
+
+    git checkout -- package.json package-lock.json "$CHANGELOG_FILE" 2>/dev/null \
+      || git checkout -- package.json "$CHANGELOG_FILE" 2>/dev/null \
+      || git checkout -- package.json
   fi
+
+  if [[ -n "${RELEASE_NOTES_FILE:-}" && -f "$RELEASE_NOTES_FILE" ]]; then
+    rm -f "$RELEASE_NOTES_FILE"
+  fi
+}
+
+create_changelog_entry() {
+  local version="$1"
+  local notes_file="$2"
+
+  echo "==> Preparing changelog entry"
+  echo
+  echo "Write release notes for $version."
+  echo "Finish input with Ctrl+D."
+  echo
+
+  local notes
+  notes="$(cat)"
+
+  if [[ -z "$(echo "$notes" | tr -d '[:space:]')" ]]; then
+    echo "Release notes cannot be empty."
+    rollback_version_bump
+    exit 1
+  fi
+
+  printf "%s\n" "$notes" > "$notes_file"
+
+  local date
+  date="$(date +%F)"
+
+  local tmp_file
+  tmp_file="$(mktemp)"
+
+  {
+    echo "## $version - $date"
+    echo
+    cat "$notes_file"
+    echo
+
+    if [[ -f "$CHANGELOG_FILE" ]]; then
+      cat "$CHANGELOG_FILE"
+    fi
+  } > "$tmp_file"
+
+  mv "$tmp_file" "$CHANGELOG_FILE"
 }
 
 if [[ "$RELEASE_TYPE" != "patch" && "$RELEASE_TYPE" != "minor" ]]; then
@@ -120,6 +170,9 @@ if git ls-remote --exit-code --tags origin "refs/tags/$NEW_VERSION" > /dev/null 
   exit 1
 fi
 
+RELEASE_NOTES_FILE="$(mktemp)"
+create_changelog_entry "$NEW_VERSION" "$RELEASE_NOTES_FILE"
+
 echo "==> Rebuilding after version bump"
 
 npm run build
@@ -128,17 +181,23 @@ echo "==> Checking final package contents"
 
 npm pack --dry-run
 
+echo "==> Release diff"
+
+git diff -- package.json package-lock.json "$CHANGELOG_FILE" || true
+
 read -r -p "Create git tag, GitHub release, and publish $NEW_VERSION to npm? [y/N] " CONFIRM_RELEASE
 
 if [[ "$CONFIRM_RELEASE" != "y" && "$CONFIRM_RELEASE" != "Y" ]]; then
   echo "Release cancelled after version bump."
-  echo "You now have local package version changes. Review with: git diff"
+  echo "You now have local package version and changelog changes. Review with: git diff"
   exit 0
 fi
 
 echo "==> Committing release version"
 
-git add package.json package-lock.json 2>/dev/null || git add package.json
+git add package.json package-lock.json "$CHANGELOG_FILE" 2>/dev/null \
+  || git add package.json "$CHANGELOG_FILE"
+
 git commit -m "chore(release): $NEW_VERSION"
 VERSION_BUMPED=""
 
@@ -155,7 +214,7 @@ echo "==> Creating GitHub release"
 
 gh release create "$NEW_VERSION" \
   --title "$NEW_VERSION" \
-  --generate-notes
+  --notes-file "$RELEASE_NOTES_FILE"
 
 echo "==> Final npm publish check"
 
@@ -167,5 +226,7 @@ fi
 echo "==> Publishing to npm"
 
 npm publish --access public
+
+rm -f "$RELEASE_NOTES_FILE"
 
 echo "==> Release completed: $NEW_VERSION"
