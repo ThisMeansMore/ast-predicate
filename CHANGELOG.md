@@ -1,3 +1,7 @@
+## v0.4.1 - 2026-06-01
+
+unique-index property `predicate` changed to `where`
+
 ## v0.4.0 - 2026-06-01
 
 ### Changed
