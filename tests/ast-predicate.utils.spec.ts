@@ -8,18 +8,18 @@ import {
 
 describe('ast predicate utils', () => {
     it('collects refs from nested predicate nodes', () => {
-        type EditionTable = {
+        type ArticleTable = {
             status: string;
             deletedAt: Date | null;
-            tenantCode: string;
+            workspaceId: string;
         };
 
-        const node = createAstPredicateWhere<EditionTable>(({ eb, and, or }) =>
+        const node = createAstPredicateWhere<ArticleTable>(({ eb, and, or }) =>
             and([
-                eb('status', '=', 'ACTIVE'),
+                eb('status', '=', 'PUBLISHED'),
                 or([
                     eb('deletedAt', 'is', null),
-                    eb('tenantCode', '=', 'tenant-1'),
+                    eb('workspaceId', '=', 'workspace-1'),
                 ]),
             ]),
         );
@@ -27,28 +27,28 @@ describe('ast predicate utils', () => {
         expect(collectAstPredicateRefs(node)).toEqual([
             'status',
             'deletedAt',
-            'tenantCode',
+            'workspaceId',
         ]);
     });
 
     it('maps refs from nested predicate nodes', () => {
-        type EditionTable = {
+        type ArticleTable = {
             status: string;
             deletedAt: Date | null;
-            tenantCode: string;
+            workspaceId: string;
         };
 
-        const node = createAstPredicateWhere<EditionTable>(({ eb, and, or }) =>
+        const node = createAstPredicateWhere<ArticleTable>(({ eb, and, or }) =>
             and([
-                eb('status', '=', 'ACTIVE'),
+                eb('status', '=', 'PUBLISHED'),
                 or([
                     eb('deletedAt', 'is', null),
-                    eb('tenantCode', '=', 'tenant-1'),
+                    eb('workspaceId', '=', 'workspace-1'),
                 ]),
             ]),
         );
 
-        expect(mapAstPredicateRefs(node, (ref) => `Edition.${ref}`)).toEqual({
+        expect(mapAstPredicateRefs(node, (ref) => `Article.${ref}`)).toEqual({
             type: 'logical',
             op: 'and',
             nodes: [
@@ -56,12 +56,12 @@ describe('ast predicate utils', () => {
                     type: 'binary',
                     left: {
                         type: 'ref',
-                        ref: 'Edition.status',
+                        ref: 'Article.status',
                     },
                     op: '=',
                     right: {
                         type: 'value',
-                        value: 'ACTIVE',
+                        value: 'PUBLISHED',
                     },
                 },
                 {
@@ -72,7 +72,7 @@ describe('ast predicate utils', () => {
                             type: 'binary',
                             left: {
                                 type: 'ref',
-                                ref: 'Edition.deletedAt',
+                                ref: 'Article.deletedAt',
                             },
                             op: 'is',
                             right: {
@@ -84,12 +84,12 @@ describe('ast predicate utils', () => {
                             type: 'binary',
                             left: {
                                 type: 'ref',
-                                ref: 'Edition.tenantCode',
+                                ref: 'Article.workspaceId',
                             },
                             op: '=',
                             right: {
                                 type: 'value',
-                                value: 'tenant-1',
+                                value: 'workspace-1',
                             },
                         },
                     ],
@@ -103,18 +103,18 @@ describe('ast predicate utils', () => {
             type: 'binary',
             left: {
                 type: 'ref',
-                ref: 'Edition.ProductCode',
+                ref: 'Article.categoryId',
             },
             op: '=',
             right: {
                 type: 'ref',
-                ref: 'Product.code',
+                ref: 'Category.id',
             },
         } as const;
 
         expect(collectAstPredicateRefs(node)).toEqual([
-            'Edition.ProductCode',
-            'Product.code',
+            'Article.categoryId',
+            'Category.id',
         ]);
     });
 });

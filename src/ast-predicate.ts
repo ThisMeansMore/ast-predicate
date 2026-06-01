@@ -54,11 +54,17 @@ type AstPredicateStatic = {
  * `ast-predicate` uses a Kysely-like expression-builder style:
  *
  * ```ts
- * const eb = AstPredicate.expressionBuilder<EditionTable>();
+ * type ArticleTable = {
+ *     id: string;
+ *     status: string;
+ *     deletedAt: Date | null;
+ * };
+ *
+ * const eb = AstPredicate.expressionBuilder<ArticleTable>();
  *
  * const predicate = eb.and([
  *     eb('deletedAt', 'is', null),
- *     eb('status', '=', 'ACTIVE'),
+ *     eb('status', '=', 'PUBLISHED'),
  * ]);
  * ```
  *
@@ -66,11 +72,23 @@ type AstPredicateStatic = {
  * table-qualified refs:
  *
  * ```ts
+ * type DB = {
+ *     Article: {
+ *         categoryId: string;
+ *         workspaceId: string;
+ *     };
+ *     Category: {
+ *         id: string;
+ *         workspaceId: string;
+ *     };
+ * };
+ *
  * const db = AstPredicate.database<DB>();
  *
  * const predicate = db.where(({ eb, and, ref }) =>
  *     and([
- *         eb('Edition.ProductCode', '=', ref('Product.code')),
+ *         eb('Article.categoryId', '=', ref('Category.id')),
+ *         eb('Article.workspaceId', '=', ref('Category.workspaceId')),
  *     ]),
  * );
  * ```
@@ -81,13 +99,13 @@ type AstPredicateStatic = {
  * const db = AstPredicate.database<
  *     DB,
  *     {
- *         e: 'Edition';
- *         p: 'Product';
+ *         a: 'Article';
+ *         c: 'Category';
  *     }
  * >();
  *
  * const predicate = db.where(({ eb, ref }) =>
- *     eb('e.ProductCode', '=', ref('p.code')),
+ *     eb('a.categoryId', '=', ref('c.id')),
  * );
  * ```
  */

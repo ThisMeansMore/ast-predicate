@@ -21,19 +21,19 @@ describe('compiled SQL expect test utils', () => {
             {
                 sql: `
                     select *
-                    from "superlicensor"."Editions"
-                    where "TenantCode" = $1
+                    from "schema"."Articles"
+                    where "workspaceId" = $1
                     limit $2
                 `,
-                parameters: ['tenant-1', 10],
+                parameters: ['workspace-1', 10],
             },
             {
-                contains: ['from "superlicensor"."Editions"'],
+                contains: ['from "schema"."Articles"'],
                 notContains: ['order by'],
-                matches: [/"TenantCode"\s*=\s*\$\d+/i],
+                matches: [/"workspaceId"\s*=\s*\$\d+/i],
                 notMatches: [/offset/i],
-                parameters: ['tenant-1'],
-                exactParameters: ['tenant-1', 10],
+                parameters: ['workspace-1'],
+                exactParameters: ['workspace-1', 10],
             },
         );
     });
@@ -42,37 +42,38 @@ describe('compiled SQL expect test utils', () => {
         const compiled = {
             sql: `
                 select *
-                from "superlicensor"."Editions"
-                where "TenantCode" = $1
-                  and "ProductCode" = $2
+                from "schema"."Articles"
+                where "workspaceId" = $1
+                  and "categoryId" = $2
                   and "deletedAt" is null
-                order by "name" asc
+                order by "title" asc
                 limit $3
             `,
-            parameters: ['tenant-1', 'product-1', 25],
+            parameters: ['workspace-1', 'category-1', 25],
         };
 
-        expectSelectFrom(compiled, 'superlicensor.Editions');
-        expectWhereEquals(compiled, 'TenantCode', 'tenant-1');
+        expectSelectFrom(compiled, 'schema.Articles');
+        expectWhereEquals(compiled, 'workspaceId', 'workspace-1');
+        expectWhereEquals(compiled, 'categoryId', 'category-1');
         expectWhereIsNull(compiled, 'deletedAt');
         expectNoWhereEquals(compiled, 'missingColumn');
-        expectOrderByColumn(compiled, 'name', 'asc');
+        expectOrderByColumn(compiled, 'title', 'asc');
         expectLimitParameter(compiled, 25);
-        expectParameterOccurrences(compiled, 'tenant-1', 1);
+        expectParameterOccurrences(compiled, 'workspace-1', 1);
     });
 
     it('asserts update query patterns', () => {
         const compiled = {
             sql: `
-                update "superlicensor"."Editions"
+                update "schema"."Articles"
                 set "description" = $1
-                where "code" = $2
+                where "id" = $2
             `,
-            parameters: ['Updated', 'edition-1'],
+            parameters: ['Updated', 'article-1'],
         };
 
-        expectUpdateTable(compiled, 'superlicensor.Editions');
+        expectUpdateTable(compiled, 'schema.Articles');
         expectSetColumn(compiled, 'description', 'Updated');
-        expectWhereEquals(compiled, 'code', 'edition-1');
+        expectWhereEquals(compiled, 'id', 'article-1');
     });
 });

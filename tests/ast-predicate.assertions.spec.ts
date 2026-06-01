@@ -10,14 +10,14 @@ import {
 
 describe('ast predicate assertions', () => {
     it('does not throw for valid predicate nodes', () => {
-        type EditionTable = {
+        type ArticleTable = {
             status: string;
             deletedAt: Date | null;
         };
 
-        const node = createAstPredicateWhere<EditionTable>(({ eb, or }) =>
+        const node = createAstPredicateWhere<ArticleTable>(({ eb, or }) =>
             or([
-                eb('status', '=', 'ACTIVE'),
+                eb('status', '=', 'PUBLISHED'),
                 eb('deletedAt', 'is', null),
             ]),
         );
@@ -33,20 +33,20 @@ describe('ast predicate assertions', () => {
                 type: 'comparison',
                 column: 'status',
                 op: 'eq',
-                value: 'ACTIVE',
+                value: 'PUBLISHED',
             });
         }).toThrow(InvalidAstPredicateNodeError);
     });
 
     it('does not throw when all refs are allowed', () => {
-        type EditionTable = {
+        type ArticleTable = {
             status: string;
             deletedAt: Date | null;
         };
 
-        const node = createAstPredicateWhere<EditionTable>(({ eb, or }) =>
+        const node = createAstPredicateWhere<ArticleTable>(({ eb, or }) =>
             or([
-                eb('status', '=', 'ACTIVE'),
+                eb('status', '=', 'PUBLISHED'),
                 eb('deletedAt', 'is', null),
             ]),
         );
@@ -57,14 +57,14 @@ describe('ast predicate assertions', () => {
     });
 
     it('throws when a ref is not allowed', () => {
-        type EditionTable = {
+        type ArticleTable = {
             status: string;
             deletedAt: Date | null;
         };
 
-        const node = createAstPredicateWhere<EditionTable>(({ eb, or }) =>
+        const node = createAstPredicateWhere<ArticleTable>(({ eb, or }) =>
             or([
-                eb('status', '=', 'ACTIVE'),
+                eb('status', '=', 'PUBLISHED'),
                 eb('deletedAt', 'is', null),
             ]),
         );
