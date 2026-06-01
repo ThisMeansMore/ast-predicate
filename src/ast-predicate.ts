@@ -1,143 +1,109 @@
 import {
-    and,
-    eq,
-    gt,
-    gte,
-    inArray,
-    isNotNull,
-    isNull,
-    lt,
-    lte,
-    neq,
-    notInArray,
-    or,
+    createAstPredicateDatabase,
+    createAstPredicateExpressionBuilder,
+    createAstPredicateWhere,
+    resolveAstPredicateInput,
 } from './ast-predicate.builders.js';
 import {
-    assertAstPredicateColumnsAllowed,
     assertAstPredicateNode,
+    assertAstPredicateRefsAllowed,
 } from './ast-predicate.assertions.js';
 import { isAstPredicateNode } from './ast-predicate.guards.js';
 import {
-    collectAstPredicateColumns,
-    mapAstPredicateColumns,
+    collectAstPredicateRefs,
+    mapAstPredicateRefs,
 } from './ast-predicate.utils.js';
 
 import type {
-    AstPredicateBuilder,
-    AstPredicateColumnOf,
+    AstPredicateColumnRef,
+    AstPredicateDatabase,
+    AstPredicateDatabaseAliasMap,
+    AstPredicateExpressionBuilder,
+    AstPredicateExpressionFactory,
+    AstPredicateNode,
 } from './ast-predicate.types.js';
 
-function createAstPredicateForColumns<
-    TColumn extends string,
->(): AstPredicateBuilder<TColumn> {
-    return {
-        and,
-        or,
-        eq,
-        neq,
-        gt,
-        gte,
-        lt,
-        lte,
-        inArray,
-        notInArray,
-        isNull,
-        isNotNull,
-    };
-}
-
 type AstPredicateStatic = {
-    <TModel extends object>(): AstPredicateBuilder<AstPredicateColumnOf<TModel>>;
+    readonly expressionBuilder: <TTable extends object>() =>
+        AstPredicateExpressionBuilder<AstPredicateColumnRef<TTable>>;
 
-    readonly forColumns: <TColumn extends string>() => AstPredicateBuilder<TColumn>;
+    readonly database: <
+        TDB extends object,
+        TAliases extends AstPredicateDatabaseAliasMap<TDB> = Record<
+            never,
+            never
+        >,
+    >() => AstPredicateDatabase<TDB, TAliases>;
 
-    readonly forModel: <TModel extends object>() => AstPredicateBuilder<
-        AstPredicateColumnOf<TModel>
-    >;
+    readonly where: <TTable extends object>(
+        factory: AstPredicateExpressionFactory<AstPredicateColumnRef<TTable>>,
+    ) => AstPredicateNode<AstPredicateColumnRef<TTable>>;
 
-    readonly and: typeof and;
-    readonly or: typeof or;
-    readonly eq: typeof eq;
-    readonly neq: typeof neq;
-    readonly gt: typeof gt;
-    readonly gte: typeof gte;
-    readonly lt: typeof lt;
-    readonly lte: typeof lte;
-    readonly inArray: typeof inArray;
-    readonly notInArray: typeof notInArray;
-    readonly isNull: typeof isNull;
-    readonly isNotNull: typeof isNotNull;
+    readonly resolve: typeof resolveAstPredicateInput;
+
     readonly isNode: typeof isAstPredicateNode;
     readonly assertNode: typeof assertAstPredicateNode;
-    readonly assertColumnsAllowed: typeof assertAstPredicateColumnsAllowed;
-    readonly mapColumns: typeof mapAstPredicateColumns;
-    readonly collectColumns: typeof collectAstPredicateColumns;
+    readonly assertRefsAllowed: typeof assertAstPredicateRefsAllowed;
+    readonly mapRefs: typeof mapAstPredicateRefs;
+    readonly collectRefs: typeof collectAstPredicateRefs;
 };
 
 /**
- * Public builder and utility entry point for creating predicate AST nodes.
+ * Public entry point for creating typed predicate AST nodes.
  *
- * The root object can be used directly when column names do not need to be
- * bound to a specific model:
+ * `ast-predicate` uses a Kysely-like expression-builder style:
  *
  * ```ts
- * const predicate = AstPredicate.and(
- *     AstPredicate.eq('status', 'ACTIVE'),
- *     AstPredicate.isNull('deletedAt'),
+ * const eb = AstPredicate.expressionBuilder<EditionTable>();
+ *
+ * const predicate = eb.and([
+ *     eb('deletedAt', 'is', null),
+ *     eb('status', '=', 'ACTIVE'),
+ * ]);
+ * ```
+ *
+ * For database-level expressions, use `AstPredicate.database<DB>()` to get
+ * table-qualified refs:
+ *
+ * ```ts
+ * const db = AstPredicate.database<DB>();
+ *
+ * const predicate = db.where(({ eb, and, ref }) =>
+ *     and([
+ *         eb('Edition.ProductCode', '=', ref('Product.code')),
+ *     ]),
  * );
  * ```
  *
- * For column-name type safety, call `AstPredicate<TModel>()` and destructure
- * the returned model-bound builders:
+ * Optional aliases can be added type-only:
  *
  * ```ts
- * type EditionTable = {
- *     code: string;
- *     TenantCode: string;
- *     ProductCode: string;
- *     deletedAt: Date | null;
- * };
+ * const db = AstPredicate.database<
+ *     DB,
+ *     {
+ *         e: 'Edition';
+ *         p: 'Product';
+ *     }
+ * >();
  *
- * const { and, eq, isNull } = AstPredicate<EditionTable>();
- *
- * const predicate = and(
- *     eq('ProductCode', 'product-1'),
- *     isNull('deletedAt'),
+ * const predicate = db.where(({ eb, ref }) =>
+ *     eb('e.ProductCode', '=', ref('p.code')),
  * );
- *
- * // Type error: "notExists" is not a key of EditionTable.
- * isNull('notExists');
  * ```
- *
- * The model-bound builder currently validates column names only. It does not
- * yet validate that comparison values match the exact property type of the
- * selected column.
  */
-export const AstPredicate = Object.assign(
-    <TModel extends object>() =>
-        createAstPredicateForColumns<AstPredicateColumnOf<TModel>>(),
-    {
-        forColumns: createAstPredicateForColumns,
+export const AstPredicate = {
+    expressionBuilder: <TTable extends object>() =>
+        createAstPredicateExpressionBuilder<AstPredicateColumnRef<TTable>>(),
 
-        forModel: <TModel extends object>() =>
-            createAstPredicateForColumns<AstPredicateColumnOf<TModel>>(),
+    database: createAstPredicateDatabase,
 
-        and,
-        or,
-        eq,
-        neq,
-        gt,
-        gte,
-        lt,
-        lte,
-        inArray,
-        notInArray,
-        isNull,
-        isNotNull,
-        isNode: isAstPredicateNode,
-        assertNode: assertAstPredicateNode,
-        assertColumnsAllowed: assertAstPredicateColumnsAllowed,
-        mapColumns: mapAstPredicateColumns,
-        collectColumns: collectAstPredicateColumns,
-    },
-) as AstPredicateStatic;
+    where: createAstPredicateWhere,
+
+    resolve: resolveAstPredicateInput,
+
+    isNode: isAstPredicateNode,
+    assertNode: assertAstPredicateNode,
+    assertRefsAllowed: assertAstPredicateRefsAllowed,
+    mapRefs: mapAstPredicateRefs,
+    collectRefs: collectAstPredicateRefs,
+} as AstPredicateStatic;

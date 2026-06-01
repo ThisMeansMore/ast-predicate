@@ -1,142 +1,149 @@
 import type {
-    AstPredicateComparisonNode,
-    AstPredicateLogicalNode,
+    AstPredicateColumnRef,
+    AstPredicateDatabase,
+    AstPredicateDatabaseAliasMap,
+    AstPredicateDatabaseAnyRef,
+    AstPredicateExpressionBuilder,
+    AstPredicateExpressionContext,
+    AstPredicateExpressionFactory,
+    AstPredicateExpressionRight,
+    AstPredicateInput,
     AstPredicateNode,
-    AstPredicatePrimitive,
+    AstPredicateOperand,
+    AstPredicateRefOperand,
+    AstPredicateValue,
+    AstPredicateValueOperand,
 } from './ast-predicate.types.js';
 
-export function and<TColumn extends string>(
-    ...conditions: readonly AstPredicateNode<TColumn>[]
-): AstPredicateLogicalNode<TColumn> {
+function isAstPredicateOperand<TRef extends string>(
+    value: unknown,
+): value is AstPredicateOperand<TRef> {
+    if (typeof value !== 'object' || value === null || !('type' in value)) {
+        return false;
+    }
+
+    return value.type === 'ref' || value.type === 'value';
+}
+
+function normalizeAstPredicateRef<TRef extends string>(
+    ref: TRef | AstPredicateRefOperand<TRef>,
+): AstPredicateRefOperand<TRef> {
+    if (typeof ref === 'string') {
+        return createAstPredicateRef(ref);
+    }
+
+    return ref;
+}
+
+export function createAstPredicateRef<TRef extends string>(
+    ref: TRef,
+): AstPredicateRefOperand<TRef> {
     return {
-        type: 'logical',
-        op: 'and',
-        conditions,
+        type: 'ref',
+        ref,
     };
 }
 
-export function or<TColumn extends string>(
-    ...conditions: readonly AstPredicateNode<TColumn>[]
-): AstPredicateLogicalNode<TColumn> {
+export function createAstPredicateValue(
+    value: AstPredicateValue,
+): AstPredicateValueOperand {
     return {
-        type: 'logical',
-        op: 'or',
-        conditions,
-    };
-}
-
-export function eq<TColumn extends string>(
-    column: TColumn,
-    value: AstPredicatePrimitive,
-): AstPredicateComparisonNode<TColumn> {
-    return {
-        type: 'comparison',
-        column,
-        op: 'eq',
+        type: 'value',
         value,
     };
 }
 
-export function neq<TColumn extends string>(
-    column: TColumn,
-    value: AstPredicatePrimitive,
-): AstPredicateComparisonNode<TColumn> {
+export function createAstPredicateExpressionBuilder<
+    TRef extends string,
+>(): AstPredicateExpressionBuilder<TRef> {
+    const eb = ((
+        left: TRef | AstPredicateRefOperand<TRef>,
+        op: Parameters<AstPredicateExpressionBuilder<TRef>>[1],
+        right: AstPredicateExpressionRight<TRef>,
+    ) => ({
+        type: 'binary',
+        left: normalizeAstPredicateRef(left),
+        op,
+        right: isAstPredicateOperand(right)
+            ? right
+            : createAstPredicateValue(right),
+    })) as AstPredicateExpressionBuilder<TRef>;
+
+    return Object.assign(eb, {
+        ref: normalizeAstPredicateRef<TRef>,
+        val: createAstPredicateValue,
+
+        and: (nodes: readonly AstPredicateNode<TRef>[]) => ({
+            type: 'logical',
+            op: 'and',
+            nodes,
+        }),
+
+        or: (nodes: readonly AstPredicateNode<TRef>[]) => ({
+            type: 'logical',
+            op: 'or',
+            nodes,
+        }),
+
+        not: (node: AstPredicateNode<TRef>) => ({
+            type: 'unary',
+            op: 'not',
+            node,
+        }),
+    });
+}
+
+export function createAstPredicateExpressionContext<TRef extends string>(
+    eb: AstPredicateExpressionBuilder<TRef>,
+): AstPredicateExpressionContext<TRef> {
     return {
-        type: 'comparison',
-        column,
-        op: 'neq',
-        value,
+        eb,
+        ref: eb.ref,
+        val: eb.val,
+        and: eb.and,
+        or: eb.or,
+        not: eb.not,
     };
 }
 
-export function gt<TColumn extends string>(
-    column: TColumn,
-    value: Exclude<AstPredicatePrimitive, boolean | null>,
-): AstPredicateComparisonNode<TColumn> {
-    return {
-        type: 'comparison',
-        column,
-        op: 'gt',
-        value,
-    };
+export function resolveAstPredicateInput<TRef extends string>(
+    input: AstPredicateInput<TRef>,
+    eb: AstPredicateExpressionBuilder<TRef> = createAstPredicateExpressionBuilder<TRef>(),
+): AstPredicateNode<TRef> {
+    if (typeof input === 'function') {
+        return input(createAstPredicateExpressionContext(eb));
+    }
+
+    return input;
 }
 
-export function gte<TColumn extends string>(
-    column: TColumn,
-    value: Exclude<AstPredicatePrimitive, boolean | null>,
-): AstPredicateComparisonNode<TColumn> {
-    return {
-        type: 'comparison',
-        column,
-        op: 'gte',
-        value,
-    };
+export function createAstPredicateWhere<TTable extends object>(
+    factory: AstPredicateExpressionFactory<AstPredicateColumnRef<TTable>>,
+): AstPredicateNode<AstPredicateColumnRef<TTable>> {
+    const eb =
+        createAstPredicateExpressionBuilder<AstPredicateColumnRef<TTable>>();
+
+    return factory(createAstPredicateExpressionContext(eb));
 }
 
-export function lt<TColumn extends string>(
-    column: TColumn,
-    value: Exclude<AstPredicatePrimitive, boolean | null>,
-): AstPredicateComparisonNode<TColumn> {
-    return {
-        type: 'comparison',
-        column,
-        op: 'lt',
-        value,
-    };
-}
+export function createAstPredicateDatabase<
+    TDB extends object,
+    TAliases extends AstPredicateDatabaseAliasMap<TDB> = Record<never, never>,
+>(): AstPredicateDatabase<TDB, TAliases> {
+    type TRef = AstPredicateDatabaseAnyRef<TDB, TAliases>;
 
-export function lte<TColumn extends string>(
-    column: TColumn,
-    value: Exclude<AstPredicatePrimitive, boolean | null>,
-): AstPredicateComparisonNode<TColumn> {
-    return {
-        type: 'comparison',
-        column,
-        op: 'lte',
-        value,
-    };
-}
+    const expressionBuilder = () =>
+        createAstPredicateExpressionBuilder<TRef>();
 
-export function inArray<TColumn extends string>(
-    column: TColumn,
-    value: readonly AstPredicatePrimitive[],
-): AstPredicateComparisonNode<TColumn> {
     return {
-        type: 'comparison',
-        column,
-        op: 'in',
-        value,
-    };
-}
+        ref: (ref) => createAstPredicateRef(ref),
 
-export function notInArray<TColumn extends string>(
-    column: TColumn,
-    value: readonly AstPredicatePrimitive[],
-): AstPredicateComparisonNode<TColumn> {
-    return {
-        type: 'comparison',
-        column,
-        op: 'notIn',
-        value,
-    };
-}
+        expressionBuilder,
 
-export function isNull<TColumn extends string>(
-    column: TColumn,
-): AstPredicateComparisonNode<TColumn> {
-    return {
-        type: 'comparison',
-        column,
-        op: 'isNull',
-    };
-}
+        where: (factory) => {
+            const eb = expressionBuilder();
 
-export function isNotNull<TColumn extends string>(
-    column: TColumn,
-): AstPredicateComparisonNode<TColumn> {
-    return {
-        type: 'comparison',
-        column,
-        op: 'isNotNull',
+            return factory(createAstPredicateExpressionContext(eb));
+        },
     };
 }

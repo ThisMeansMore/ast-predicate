@@ -1,6 +1,9 @@
 import { isAstPredicateNode } from './ast-predicate.guards.js';
 
-import type { AstPredicateNode } from './ast-predicate.types.js';
+import type {
+    AstPredicateNode,
+    AstPredicateOperand,
+} from './ast-predicate.types.js';
 
 export class InvalidAstPredicateNodeError extends Error {
     constructor() {
@@ -9,34 +12,52 @@ export class InvalidAstPredicateNodeError extends Error {
     }
 }
 
-export class AstPredicateColumnNotAllowedError extends Error {
-    constructor(column: string) {
-        super(`AST predicate column "${column}" is not allowed.`);
-        this.name = 'AstPredicateColumnNotAllowedError';
+export class AstPredicateRefNotAllowedError extends Error {
+    constructor(ref: string) {
+        super(`AST predicate ref "${ref}" is not allowed.`);
+        this.name = 'AstPredicateRefNotAllowedError';
     }
 }
 
-export function assertAstPredicateNode<TColumn extends string = string>(
+export function assertAstPredicateNode<TRef extends string = string>(
     value: unknown,
-): asserts value is AstPredicateNode<TColumn> {
-    if (!isAstPredicateNode<TColumn>(value)) {
+): asserts value is AstPredicateNode<TRef> {
+    if (!isAstPredicateNode<TRef>(value)) {
         throw new InvalidAstPredicateNodeError();
     }
 }
 
-export function assertAstPredicateColumnsAllowed<TColumn extends string>(
-    node: AstPredicateNode<TColumn>,
-    allowedColumns: readonly TColumn[],
+export function assertAstPredicateRefsAllowed<TRef extends string>(
+    node: AstPredicateNode<TRef>,
+    allowedRefs: readonly TRef[],
 ): void {
     if (node.type === 'logical') {
-        for (const condition of node.conditions) {
-            assertAstPredicateColumnsAllowed(condition, allowedColumns);
+        for (const childNode of node.nodes) {
+            assertAstPredicateRefsAllowed(childNode, allowedRefs);
         }
 
         return;
     }
 
-    if (!allowedColumns.includes(node.column)) {
-        throw new AstPredicateColumnNotAllowedError(node.column);
+    if (node.type === 'unary') {
+        assertAstPredicateRefsAllowed(node.node, allowedRefs);
+
+        return;
+    }
+
+    assertOperandRefAllowed(node.left, allowedRefs);
+    assertOperandRefAllowed(node.right, allowedRefs);
+}
+
+function assertOperandRefAllowed<TRef extends string>(
+    operand: AstPredicateOperand<TRef>,
+    allowedRefs: readonly TRef[],
+): void {
+    if (operand.type !== 'ref') {
+        return;
+    }
+
+    if (!allowedRefs.includes(operand.ref)) {
+        throw new AstPredicateRefNotAllowedError(operand.ref);
     }
 }

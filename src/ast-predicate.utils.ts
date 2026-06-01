@@ -1,37 +1,92 @@
 import type {
-    AstPredicateComparisonNode,
+    AstPredicateBinaryNode,
     AstPredicateLogicalNode,
     AstPredicateNode,
+    AstPredicateOperand,
+    AstPredicateRefOperand,
+    AstPredicateUnaryNode,
 } from './ast-predicate.types.js';
 
-export function mapAstPredicateColumns<
-    TInputColumn extends string,
-    TOutputColumn extends string,
+export function mapAstPredicateRefs<
+    TInputRef extends string,
+    TOutputRef extends string,
 >(
-    node: AstPredicateNode<TInputColumn>,
-    mapper: (column: TInputColumn) => TOutputColumn,
-): AstPredicateNode<TOutputColumn> {
+    node: AstPredicateNode<TInputRef>,
+    mapper: (ref: TInputRef) => TOutputRef,
+): AstPredicateNode<TOutputRef> {
     if (node.type === 'logical') {
         return {
             ...node,
-            conditions: node.conditions.map((condition) =>
-                mapAstPredicateColumns(condition, mapper),
+            nodes: node.nodes.map((childNode) =>
+                mapAstPredicateRefs(childNode, mapper),
             ),
-        } satisfies AstPredicateLogicalNode<TOutputColumn>;
+        } satisfies AstPredicateLogicalNode<TOutputRef>;
+    }
+
+    if (node.type === 'unary') {
+        return {
+            ...node,
+            node: mapAstPredicateRefs(node.node, mapper),
+        } satisfies AstPredicateUnaryNode<TOutputRef>;
     }
 
     return {
         ...node,
-        column: mapper(node.column),
-    } satisfies AstPredicateComparisonNode<TOutputColumn>;
+        left: mapAstPredicateRefOperand(node.left, mapper),
+        right: mapAstPredicateOperandRef(node.right, mapper),
+    } satisfies AstPredicateBinaryNode<TOutputRef>;
 }
 
-export function collectAstPredicateColumns<TColumn extends string>(
-    node: AstPredicateNode<TColumn>,
-): TColumn[] {
+export function collectAstPredicateRefs<TRef extends string>(
+    node: AstPredicateNode<TRef>,
+): TRef[] {
     if (node.type === 'logical') {
-        return node.conditions.flatMap(collectAstPredicateColumns);
+        return node.nodes.flatMap(collectAstPredicateRefs);
     }
 
-    return [node.column];
+    if (node.type === 'unary') {
+        return collectAstPredicateRefs(node.node);
+    }
+
+    return [
+        node.left.ref,
+        ...collectAstPredicateOperandRefs(node.right),
+    ];
+}
+
+function mapAstPredicateRefOperand<
+    TInputRef extends string,
+    TOutputRef extends string,
+>(
+    operand: AstPredicateRefOperand<TInputRef>,
+    mapper: (ref: TInputRef) => TOutputRef,
+): AstPredicateRefOperand<TOutputRef> {
+    return {
+        ...operand,
+        ref: mapper(operand.ref),
+    };
+}
+
+function mapAstPredicateOperandRef<
+    TInputRef extends string,
+    TOutputRef extends string,
+>(
+    operand: AstPredicateOperand<TInputRef>,
+    mapper: (ref: TInputRef) => TOutputRef,
+): AstPredicateOperand<TOutputRef> {
+    if (operand.type === 'value') {
+        return operand;
+    }
+
+    return mapAstPredicateRefOperand(operand, mapper);
+}
+
+function collectAstPredicateOperandRefs<TRef extends string>(
+    operand: AstPredicateOperand<TRef>,
+): TRef[] {
+    if (operand.type === 'value') {
+        return [];
+    }
+
+    return [operand.ref];
 }

@@ -1,93 +1,162 @@
-export type AstPredicateLogicalOperator = 'and' | 'or';
-
-export type AstPredicateComparisonOperator =
-    | 'eq'
-    | 'neq'
-    | 'gt'
-    | 'gte'
-    | 'lt'
-    | 'lte'
-    | 'in'
-    | 'notIn'
-    | 'isNull'
-    | 'isNotNull';
-
 export type AstPredicatePrimitive = string | number | boolean | Date | null;
 
 export type AstPredicateValue =
     | AstPredicatePrimitive
     | readonly AstPredicatePrimitive[];
 
-export type AstPredicateLogicalNode<TColumn extends string = string> = {
+export type AstPredicateBinaryOperator =
+    | '='
+    | '!='
+    | '<>'
+    | '>'
+    | '>='
+    | '<'
+    | '<='
+    | 'in'
+    | 'not in'
+    | 'is'
+    | 'is not'
+    | 'like'
+    | 'not like';
+
+export type AstPredicateLogicalOperator = 'and' | 'or';
+
+export type AstPredicateUnaryOperator = 'not';
+
+export type AstPredicateRefOperand<TRef extends string = string> = {
+    readonly type: 'ref';
+    readonly ref: TRef;
+};
+
+export type AstPredicateValueOperand = {
+    readonly type: 'value';
+    readonly value: AstPredicateValue;
+};
+
+export type AstPredicateOperand<TRef extends string = string> =
+    | AstPredicateRefOperand<TRef>
+    | AstPredicateValueOperand;
+
+export type AstPredicateBinaryNode<TRef extends string = string> = {
+    readonly type: 'binary';
+    readonly left: AstPredicateRefOperand<TRef>;
+    readonly op: AstPredicateBinaryOperator;
+    readonly right: AstPredicateOperand<TRef>;
+};
+
+export type AstPredicateLogicalNode<TRef extends string = string> = {
     readonly type: 'logical';
     readonly op: AstPredicateLogicalOperator;
-    readonly conditions: readonly AstPredicateNode<TColumn>[];
+    readonly nodes: readonly AstPredicateNode<TRef>[];
 };
 
-export type AstPredicateComparisonNode<TColumn extends string = string> = {
-    readonly type: 'comparison';
-    readonly column: TColumn;
-    readonly op: AstPredicateComparisonOperator;
-    readonly value?: AstPredicateValue;
+export type AstPredicateUnaryNode<TRef extends string = string> = {
+    readonly type: 'unary';
+    readonly op: AstPredicateUnaryOperator;
+    readonly node: AstPredicateNode<TRef>;
 };
 
-export type AstPredicateNode<TColumn extends string = string> =
-    | AstPredicateLogicalNode<TColumn>
-    | AstPredicateComparisonNode<TColumn>;
+export type AstPredicateNode<TRef extends string = string> =
+    | AstPredicateBinaryNode<TRef>
+    | AstPredicateLogicalNode<TRef>
+    | AstPredicateUnaryNode<TRef>;
 
-export type AstPredicateColumnOf<TModel extends object> =
-    Extract<keyof TModel, string>;
+export type AstPredicateExpressionRight<TRef extends string = string> =
+    | AstPredicateValue
+    | AstPredicateOperand<TRef>;
 
-export type AstPredicateBuilder<TColumn extends string> = {
+export type AstPredicateExpressionBuilder<TRef extends string = string> = {
+    (
+        left: TRef | AstPredicateRefOperand<TRef>,
+        op: AstPredicateBinaryOperator,
+        right: AstPredicateExpressionRight<TRef>,
+    ): AstPredicateBinaryNode<TRef>;
+
+    readonly ref: (
+        ref: TRef | AstPredicateRefOperand<TRef>,
+    ) => AstPredicateRefOperand<TRef>;
+
+    readonly val: (value: AstPredicateValue) => AstPredicateValueOperand;
+
     readonly and: (
-        ...conditions: readonly AstPredicateNode<TColumn>[]
-    ) => AstPredicateLogicalNode<TColumn>;
+        nodes: readonly AstPredicateNode<TRef>[],
+    ) => AstPredicateLogicalNode<TRef>;
 
     readonly or: (
-        ...conditions: readonly AstPredicateNode<TColumn>[]
-    ) => AstPredicateLogicalNode<TColumn>;
+        nodes: readonly AstPredicateNode<TRef>[],
+    ) => AstPredicateLogicalNode<TRef>;
 
-    readonly eq: (
-        column: TColumn,
-        value: AstPredicatePrimitive,
-    ) => AstPredicateComparisonNode<TColumn>;
+    readonly not: (
+        node: AstPredicateNode<TRef>,
+    ) => AstPredicateUnaryNode<TRef>;
+};
 
-    readonly neq: (
-        column: TColumn,
-        value: AstPredicatePrimitive,
-    ) => AstPredicateComparisonNode<TColumn>;
+export type AstPredicateExpressionContext<TRef extends string = string> = {
+    readonly eb: AstPredicateExpressionBuilder<TRef>;
+    readonly ref: AstPredicateExpressionBuilder<TRef>['ref'];
+    readonly val: AstPredicateExpressionBuilder<TRef>['val'];
+    readonly and: AstPredicateExpressionBuilder<TRef>['and'];
+    readonly or: AstPredicateExpressionBuilder<TRef>['or'];
+    readonly not: AstPredicateExpressionBuilder<TRef>['not'];
+};
 
-    readonly gt: (
-        column: TColumn,
-        value: Exclude<AstPredicatePrimitive, boolean | null>,
-    ) => AstPredicateComparisonNode<TColumn>;
+export type AstPredicateExpressionFactory<TRef extends string = string> = (
+    context: AstPredicateExpressionContext<TRef>,
+) => AstPredicateNode<TRef>;
 
-    readonly gte: (
-        column: TColumn,
-        value: Exclude<AstPredicatePrimitive, boolean | null>,
-    ) => AstPredicateComparisonNode<TColumn>;
+export type AstPredicateInput<TRef extends string = string> =
+    | AstPredicateNode<TRef>
+    | AstPredicateExpressionFactory<TRef>;
 
-    readonly lt: (
-        column: TColumn,
-        value: Exclude<AstPredicatePrimitive, boolean | null>,
-    ) => AstPredicateComparisonNode<TColumn>;
+export type AstPredicateStringKeyOf<TValue> = Extract<keyof TValue, string>;
 
-    readonly lte: (
-        column: TColumn,
-        value: Exclude<AstPredicatePrimitive, boolean | null>,
-    ) => AstPredicateComparisonNode<TColumn>;
+export type AstPredicateColumnRef<TTable extends object> =
+    AstPredicateStringKeyOf<TTable>;
 
-    readonly inArray: (
-        column: TColumn,
-        value: readonly AstPredicatePrimitive[],
-    ) => AstPredicateComparisonNode<TColumn>;
+export type AstPredicateDatabaseRef<TDB extends object> = {
+    [TTableName in AstPredicateStringKeyOf<TDB>]: TDB[TTableName] extends object
+        ? `${TTableName}.${AstPredicateStringKeyOf<TDB[TTableName]>}`
+        : never;
+}[AstPredicateStringKeyOf<TDB>];
 
-    readonly notInArray: (
-        column: TColumn,
-        value: readonly AstPredicatePrimitive[],
-    ) => AstPredicateComparisonNode<TColumn>;
+export type AstPredicateDatabaseAliasMap<TDB extends object> = Record<
+    string,
+    AstPredicateStringKeyOf<TDB>
+>;
 
-    readonly isNull: (column: TColumn) => AstPredicateComparisonNode<TColumn>;
+export type AstPredicateDatabaseAliasRef<
+    TDB extends object,
+    TAliases extends AstPredicateDatabaseAliasMap<TDB>,
+> = {
+    [TAlias in AstPredicateStringKeyOf<TAliases>]: TAliases[TAlias] extends AstPredicateStringKeyOf<TDB>
+        ? TDB[TAliases[TAlias]] extends object
+            ? `${TAlias}.${AstPredicateStringKeyOf<TDB[TAliases[TAlias]]>}`
+            : never
+        : never;
+}[AstPredicateStringKeyOf<TAliases>];
 
-    readonly isNotNull: (column: TColumn) => AstPredicateComparisonNode<TColumn>;
+export type AstPredicateDatabaseAnyRef<
+    TDB extends object,
+    TAliases extends AstPredicateDatabaseAliasMap<TDB> = Record<never, never>,
+> =
+    | AstPredicateDatabaseRef<TDB>
+    | AstPredicateDatabaseAliasRef<TDB, TAliases>;
+
+export type AstPredicateDatabase<
+    TDB extends object,
+    TAliases extends AstPredicateDatabaseAliasMap<TDB> = Record<never, never>,
+> = {
+    readonly ref: (
+        ref: AstPredicateDatabaseAnyRef<TDB, TAliases>,
+    ) => AstPredicateRefOperand<AstPredicateDatabaseAnyRef<TDB, TAliases>>;
+
+    readonly expressionBuilder: () => AstPredicateExpressionBuilder<
+        AstPredicateDatabaseAnyRef<TDB, TAliases>
+    >;
+
+    readonly where: (
+        factory: AstPredicateExpressionFactory<
+            AstPredicateDatabaseAnyRef<TDB, TAliases>
+        >,
+    ) => AstPredicateNode<AstPredicateDatabaseAnyRef<TDB, TAliases>>;
 };

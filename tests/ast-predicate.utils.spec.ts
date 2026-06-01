@@ -1,62 +1,120 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    and,
-    collectAstPredicateColumns,
-    eq,
-    isNull,
-    mapAstPredicateColumns,
-    or,
+    collectAstPredicateRefs,
+    createAstPredicateWhere,
+    mapAstPredicateRefs,
 } from '../src/index.js';
 
 describe('ast predicate utils', () => {
-    it('collects columns from nested predicate nodes', () => {
-        const node = and(
-            eq('status', 'ACTIVE'),
-            or(isNull('deletedAt'), eq('tenantCode', 'tenant-1')),
+    it('collects refs from nested predicate nodes', () => {
+        type EditionTable = {
+            status: string;
+            deletedAt: Date | null;
+            tenantCode: string;
+        };
+
+        const node = createAstPredicateWhere<EditionTable>(({ eb, and, or }) =>
+            and([
+                eb('status', '=', 'ACTIVE'),
+                or([
+                    eb('deletedAt', 'is', null),
+                    eb('tenantCode', '=', 'tenant-1'),
+                ]),
+            ]),
         );
 
-        expect(collectAstPredicateColumns(node)).toEqual([
+        expect(collectAstPredicateRefs(node)).toEqual([
             'status',
             'deletedAt',
             'tenantCode',
         ]);
     });
 
-    it('maps columns from nested predicate nodes', () => {
-        const node = and(
-            eq('status', 'ACTIVE'),
-            or(isNull('deletedAt'), eq('tenantCode', 'tenant-1')),
+    it('maps refs from nested predicate nodes', () => {
+        type EditionTable = {
+            status: string;
+            deletedAt: Date | null;
+            tenantCode: string;
+        };
+
+        const node = createAstPredicateWhere<EditionTable>(({ eb, and, or }) =>
+            and([
+                eb('status', '=', 'ACTIVE'),
+                or([
+                    eb('deletedAt', 'is', null),
+                    eb('tenantCode', '=', 'tenant-1'),
+                ]),
+            ]),
         );
 
-        expect(mapAstPredicateColumns(node, (column) => `table.${column}`)).toEqual({
+        expect(mapAstPredicateRefs(node, (ref) => `Edition.${ref}`)).toEqual({
             type: 'logical',
             op: 'and',
-            conditions: [
+            nodes: [
                 {
-                    type: 'comparison',
-                    column: 'table.status',
-                    op: 'eq',
-                    value: 'ACTIVE',
+                    type: 'binary',
+                    left: {
+                        type: 'ref',
+                        ref: 'Edition.status',
+                    },
+                    op: '=',
+                    right: {
+                        type: 'value',
+                        value: 'ACTIVE',
+                    },
                 },
                 {
                     type: 'logical',
                     op: 'or',
-                    conditions: [
+                    nodes: [
                         {
-                            type: 'comparison',
-                            column: 'table.deletedAt',
-                            op: 'isNull',
+                            type: 'binary',
+                            left: {
+                                type: 'ref',
+                                ref: 'Edition.deletedAt',
+                            },
+                            op: 'is',
+                            right: {
+                                type: 'value',
+                                value: null,
+                            },
                         },
                         {
-                            type: 'comparison',
-                            column: 'table.tenantCode',
-                            op: 'eq',
-                            value: 'tenant-1',
+                            type: 'binary',
+                            left: {
+                                type: 'ref',
+                                ref: 'Edition.tenantCode',
+                            },
+                            op: '=',
+                            right: {
+                                type: 'value',
+                                value: 'tenant-1',
+                            },
                         },
                     ],
                 },
             ],
         });
+    });
+
+    it('collects refs from ref-to-ref predicates', () => {
+        const node = {
+            type: 'binary',
+            left: {
+                type: 'ref',
+                ref: 'Edition.ProductCode',
+            },
+            op: '=',
+            right: {
+                type: 'ref',
+                ref: 'Product.code',
+            },
+        } as const;
+
+        expect(collectAstPredicateRefs(node)).toEqual([
+            'Edition.ProductCode',
+            'Product.code',
+        ]);
     });
 });

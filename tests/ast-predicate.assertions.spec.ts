@@ -1,40 +1,76 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-    AstPredicateColumnNotAllowedError,
-    assertAstPredicateColumnsAllowed,
     assertAstPredicateNode,
-    eq,
-    isNull,
-    or,
+    assertAstPredicateRefsAllowed,
+    AstPredicateRefNotAllowedError,
+    createAstPredicateWhere,
+    InvalidAstPredicateNodeError,
 } from '../src/index.js';
 
 describe('ast predicate assertions', () => {
     it('does not throw for valid predicate nodes', () => {
+        type EditionTable = {
+            status: string;
+            deletedAt: Date | null;
+        };
+
+        const node = createAstPredicateWhere<EditionTable>(({ eb, or }) =>
+            or([
+                eb('status', '=', 'ACTIVE'),
+                eb('deletedAt', 'is', null),
+            ]),
+        );
+
         expect(() => {
-            assertAstPredicateNode(or(eq('status', 'ACTIVE'), isNull('deletedAt')));
+            assertAstPredicateNode(node);
         }).not.toThrow();
     });
 
     it('throws for invalid predicate nodes', () => {
         expect(() => {
-            assertAstPredicateNode({});
-        }).toThrow('Invalid AST predicate node.');
+            assertAstPredicateNode({
+                type: 'comparison',
+                column: 'status',
+                op: 'eq',
+                value: 'ACTIVE',
+            });
+        }).toThrow(InvalidAstPredicateNodeError);
     });
 
-    it('does not throw when all columns are allowed', () => {
-        const node = or(eq('status', 'ACTIVE'), isNull('deletedAt'));
+    it('does not throw when all refs are allowed', () => {
+        type EditionTable = {
+            status: string;
+            deletedAt: Date | null;
+        };
+
+        const node = createAstPredicateWhere<EditionTable>(({ eb, or }) =>
+            or([
+                eb('status', '=', 'ACTIVE'),
+                eb('deletedAt', 'is', null),
+            ]),
+        );
 
         expect(() => {
-            assertAstPredicateColumnsAllowed(node, ['status', 'deletedAt']);
+            assertAstPredicateRefsAllowed(node, ['status', 'deletedAt']);
         }).not.toThrow();
     });
 
-    it('throws when a column is not allowed', () => {
-        const node = or(eq('status', 'ACTIVE'), isNull('deletedAt'));
+    it('throws when a ref is not allowed', () => {
+        type EditionTable = {
+            status: string;
+            deletedAt: Date | null;
+        };
+
+        const node = createAstPredicateWhere<EditionTable>(({ eb, or }) =>
+            or([
+                eb('status', '=', 'ACTIVE'),
+                eb('deletedAt', 'is', null),
+            ]),
+        );
 
         expect(() => {
-            assertAstPredicateColumnsAllowed(node, ['status']);
-        }).toThrow(AstPredicateColumnNotAllowedError);
+            assertAstPredicateRefsAllowed(node, ['status']);
+        }).toThrow(AstPredicateRefNotAllowedError);
     });
 });
