@@ -1,529 +1,578 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from "vitest";
 
 import {
-    createAstPredicateDatabase,
-    createAstPredicateExpressionBuilder,
-    createAstPredicateWhere,
-    resolveAstPredicateInput,
-    type AstPredicateColumnRef,
-} from '../src/index.js';
+  createAstPredicateDatabase,
+  createAstPredicateExpressionBuilder,
+  createAstPredicateWhere,
+  resolveAstPredicateInput,
+  type AstPredicateColumnRef,
+} from "../src/index.js";
 
-describe('ast predicate builders', () => {
-    it('builds table-scoped binary expressions', () => {
-        type ArticleTable = {
-            id: string;
-            status: string;
-            deletedAt: Date | null;
-        };
+describe("ast predicate builders", () => {
+  it("builds table-scoped binary expressions", () => {
+    type ArticleTable = {
+      id: string;
+      status: string;
+      deletedAt: Date | null;
+    };
 
-        const eb =
-            createAstPredicateExpressionBuilder<
-                AstPredicateColumnRef<ArticleTable>
-            >();
+    const eb =
+      createAstPredicateExpressionBuilder<
+        AstPredicateColumnRef<ArticleTable>
+      >();
 
-        expect(eb('status', '=', 'PUBLISHED')).toEqual({
-            type: 'binary',
-            left: {
-                type: 'ref',
-                ref: 'status',
-            },
-            op: '=',
-            right: {
-                type: 'value',
-                value: 'PUBLISHED',
-            },
-        });
+    expect(eb("status", "=", "PUBLISHED")).toEqual({
+      type: "binary",
+      left: {
+        type: "ref",
+        ref: "status",
+      },
+      op: "=",
+      right: {
+        type: "value",
+        value: "PUBLISHED",
+      },
     });
+  });
 
-    it('builds array expressions', () => {
-        type ArticleTable = {
-            status: string;
-        };
+  it("builds array expressions", () => {
+    type ArticleTable = {
+      status: string;
+    };
 
-        const eb =
-            createAstPredicateExpressionBuilder<
-                AstPredicateColumnRef<ArticleTable>
-            >();
+    const eb =
+      createAstPredicateExpressionBuilder<
+        AstPredicateColumnRef<ArticleTable>
+      >();
 
-        expect(eb('status', 'in', ['PUBLISHED', 'DRAFT'])).toEqual({
-            type: 'binary',
-            left: {
-                type: 'ref',
-                ref: 'status',
-            },
-            op: 'in',
-            right: {
-                type: 'value',
-                value: ['PUBLISHED', 'DRAFT'],
-            },
-        });
+    expect(eb("status", "in", ["PUBLISHED", "DRAFT"])).toEqual({
+      type: "binary",
+      left: {
+        type: "ref",
+        ref: "status",
+      },
+      op: "in",
+      right: {
+        type: "value",
+        value: ["PUBLISHED", "DRAFT"],
+      },
     });
+  });
 
-    it('builds null expressions', () => {
-        type ArticleTable = {
-            deletedAt: Date | null;
-        };
+  it("builds null expressions", () => {
+    type ArticleTable = {
+      deletedAt: Date | null;
+    };
 
-        const eb =
-            createAstPredicateExpressionBuilder<
-                AstPredicateColumnRef<ArticleTable>
-            >();
+    const eb =
+      createAstPredicateExpressionBuilder<
+        AstPredicateColumnRef<ArticleTable>
+      >();
 
-        expect(eb('deletedAt', 'is', null)).toEqual({
-            type: 'binary',
-            left: {
-                type: 'ref',
-                ref: 'deletedAt',
-            },
-            op: 'is',
-            right: {
-                type: 'value',
-                value: null,
-            },
-        });
+    expect(eb("deletedAt", "is", null)).toEqual({
+      type: "binary",
+      left: {
+        type: "ref",
+        ref: "deletedAt",
+      },
+      op: "is",
+      right: {
+        type: "value",
+        value: null,
+      },
     });
+  });
 
-    it('builds logical expressions', () => {
-        type ArticleTable = {
-            status: string;
-            deletedAt: Date | null;
-            publishedAt: Date | null;
-        };
+  it("builds logical expressions", () => {
+    type ArticleTable = {
+      status: string;
+      deletedAt: Date | null;
+      publishedAt: Date | null;
+    };
 
-        const eb =
-            createAstPredicateExpressionBuilder<
-                AstPredicateColumnRef<ArticleTable>
-            >();
+    const eb =
+      createAstPredicateExpressionBuilder<
+        AstPredicateColumnRef<ArticleTable>
+      >();
 
-        expect(
-            eb.and([
-                eb('status', '=', 'PUBLISHED'),
-                eb.or([
-                    eb('deletedAt', 'is', null),
-                    eb('publishedAt', 'is not', null),
-                ]),
-            ]),
-        ).toEqual({
-            type: 'logical',
-            op: 'and',
-            nodes: [
-                {
-                    type: 'binary',
-                    left: {
-                        type: 'ref',
-                        ref: 'status',
-                    },
-                    op: '=',
-                    right: {
-                        type: 'value',
-                        value: 'PUBLISHED',
-                    },
-                },
-                {
-                    type: 'logical',
-                    op: 'or',
-                    nodes: [
-                        {
-                            type: 'binary',
-                            left: {
-                                type: 'ref',
-                                ref: 'deletedAt',
-                            },
-                            op: 'is',
-                            right: {
-                                type: 'value',
-                                value: null,
-                            },
-                        },
-                        {
-                            type: 'binary',
-                            left: {
-                                type: 'ref',
-                                ref: 'publishedAt',
-                            },
-                            op: 'is not',
-                            right: {
-                                type: 'value',
-                                value: null,
-                            },
-                        },
-                    ],
-                },
-            ],
-        });
-    });
-
-    it('builds callback expressions', () => {
-        type ArticleTable = {
-            status: string;
-            deletedAt: Date | null;
-        };
-
-        expect(
-            createAstPredicateWhere<ArticleTable>(({ eb, and }) =>
-                and([
-                    eb('deletedAt', 'is', null),
-                    eb('status', '=', 'PUBLISHED'),
-                ]),
-            ),
-        ).toEqual({
-            type: 'logical',
-            op: 'and',
-            nodes: [
-                {
-                    type: 'binary',
-                    left: {
-                        type: 'ref',
-                        ref: 'deletedAt',
-                    },
-                    op: 'is',
-                    right: {
-                        type: 'value',
-                        value: null,
-                    },
-                },
-                {
-                    type: 'binary',
-                    left: {
-                        type: 'ref',
-                        ref: 'status',
-                    },
-                    op: '=',
-                    right: {
-                        type: 'value',
-                        value: 'PUBLISHED',
-                    },
-                },
-            ],
-        });
-    });
-
-    it('builds database-scoped ref-to-ref expressions', () => {
-        type DB = {
-            Article: {
-                categoryId: string;
-                workspaceId: string;
-            };
-            Category: {
-                id: string;
-                workspaceId: string;
-            };
-        };
-
-        const db = createAstPredicateDatabase<DB>();
-
-        expect(
-            db.where(({ eb, and, ref }) =>
-                and([
-                    eb('Article.categoryId', '=', ref('Category.id')),
-                    eb(
-                        'Article.workspaceId',
-                        '=',
-                        ref('Category.workspaceId'),
-                    ),
-                ]),
-            ),
-        ).toEqual({
-            type: 'logical',
-            op: 'and',
-            nodes: [
-                {
-                    type: 'binary',
-                    left: {
-                        type: 'ref',
-                        ref: 'Article.categoryId',
-                    },
-                    op: '=',
-                    right: {
-                        type: 'ref',
-                        ref: 'Category.id',
-                    },
-                },
-                {
-                    type: 'binary',
-                    left: {
-                        type: 'ref',
-                        ref: 'Article.workspaceId',
-                    },
-                    op: '=',
-                    right: {
-                        type: 'ref',
-                        ref: 'Category.workspaceId',
-                    },
-                },
-            ],
-        });
-    });
-
-    it('builds database-scoped alias refs', () => {
-        type DB = {
-            Article: {
-                categoryId: string;
-                workspaceId: string;
-            };
-            Category: {
-                id: string;
-                workspaceId: string;
-            };
-        };
-
-        const db = createAstPredicateDatabase<
-            DB,
+    expect(
+      eb.and([
+        eb("status", "=", "PUBLISHED"),
+        eb.or([eb("deletedAt", "is", null), eb("publishedAt", "is not", null)]),
+      ]),
+    ).toEqual({
+      type: "logical",
+      op: "and",
+      nodes: [
+        {
+          type: "binary",
+          left: {
+            type: "ref",
+            ref: "status",
+          },
+          op: "=",
+          right: {
+            type: "value",
+            value: "PUBLISHED",
+          },
+        },
+        {
+          type: "logical",
+          op: "or",
+          nodes: [
             {
-                a: 'Article';
-                c: 'Category';
-            }
-        >();
-
-        expect(
-            db.where(({ eb, and, ref }) =>
-                and([
-                    eb('a.categoryId', '=', ref('c.id')),
-                    eb('a.workspaceId', '=', ref('c.workspaceId')),
-                ]),
-            ),
-        ).toEqual({
-            type: 'logical',
-            op: 'and',
-            nodes: [
-                {
-                    type: 'binary',
-                    left: {
-                        type: 'ref',
-                        ref: 'a.categoryId',
-                    },
-                    op: '=',
-                    right: {
-                        type: 'ref',
-                        ref: 'c.id',
-                    },
-                },
-                {
-                    type: 'binary',
-                    left: {
-                        type: 'ref',
-                        ref: 'a.workspaceId',
-                    },
-                    op: '=',
-                    right: {
-                        type: 'ref',
-                        ref: 'c.workspaceId',
-                    },
-                },
-            ],
-        });
-    });
-
-    it('builds table-scoped unique indexes', () => {
-        type PredicateTestDatabase = {
-            'schema.Articles': {
-                id: string;
-                workspaceId: string;
-                categoryId: string;
-                slug: string;
-                title: string;
-                description: string | null;
-                deletedAt: Date | null;
-                publishedAt: Date | null;
-                createdAt: Date;
-                status: string;
-            };
-        };
-
-        const predicateDb = createAstPredicateDatabase<PredicateTestDatabase>();
-        const articleTable = predicateDb.table('schema.Articles');
-
-        const articleUniqueIndexes = articleTable.uniqueIndexes({
-            pkey: {
-                columns: ['id'],
-            },
-            slug_unique: {
-                columns: ['workspaceId', 'categoryId', 'slug'],
-                predicate: ({ eb }) => eb('deletedAt', 'is', null),
-            },
-            nullable_description_unique: {
-                columns: ['workspaceId', 'categoryId', 'description'],
-            },
-            published_slug_unique: {
-                columns: ['workspaceId', 'categoryId', 'slug'],
-                predicate: ({ eb, and, or }) =>
-                    and([
-                        eb('deletedAt', 'is', null),
-                        or([
-                            eb('publishedAt', 'is not', null),
-                            eb('status', '=', 'PUBLISHED'),
-                        ]),
-                    ]),
-            },
-            category_ref_unique: {
-                columns: ['workspaceId', 'categoryId', 'slug'],
-                predicate: ({ eb, ref }) => eb('categoryId', '=', ref('id')),
-            },
-        });
-
-        expect(articleUniqueIndexes.pkey.columns).toEqual(['id']);
-
-        expect(articleUniqueIndexes.slug_unique.columns).toEqual([
-            'workspaceId',
-            'categoryId',
-            'slug',
-        ]);
-
-        expect(articleUniqueIndexes.nullable_description_unique.columns).toEqual(
-            ['workspaceId', 'categoryId', 'description'],
-        );
-
-        expect(articleUniqueIndexes.published_slug_unique.columns).toEqual([
-            'workspaceId',
-            'categoryId',
-            'slug',
-        ]);
-
-        expect(articleUniqueIndexes.category_ref_unique.columns).toEqual([
-            'workspaceId',
-            'categoryId',
-            'slug',
-        ]);
-    });
-
-    it('resolves table-scoped unique index predicates', () => {
-        type PredicateTestDatabase = {
-            'schema.Articles': {
-                id: string;
-                workspaceId: string;
-                categoryId: string;
-                slug: string;
-                title: string;
-                description: string | null;
-                deletedAt: Date | null;
-                publishedAt: Date | null;
-                createdAt: Date;
-                status: string;
-            };
-        };
-
-        const predicateDb = createAstPredicateDatabase<PredicateTestDatabase>();
-        const articleTable = predicateDb.table('schema.Articles');
-
-        const articleUniqueIndexes = articleTable.uniqueIndexes({
-            published_slug_unique: {
-                columns: ['workspaceId', 'categoryId', 'slug'],
-                predicate: ({ eb, and, or }) =>
-                    and([
-                        eb('deletedAt', 'is', null),
-                        or([
-                            eb('publishedAt', 'is not', null),
-                            eb('status', '=', 'PUBLISHED'),
-                        ]),
-                    ]),
-            },
-            category_ref_unique: {
-                columns: ['workspaceId', 'categoryId', 'slug'],
-                predicate: ({ eb, ref }) => eb('categoryId', '=', ref('id')),
-            },
-        });
-
-        const eb = articleTable.expressionBuilder();
-
-        expect(
-            resolveAstPredicateInput(
-                articleUniqueIndexes.published_slug_unique.predicate,
-                eb,
-            ),
-        ).toEqual({
-            type: 'logical',
-            op: 'and',
-            nodes: [
-                {
-                    type: 'binary',
-                    left: {
-                        type: 'ref',
-                        ref: 'deletedAt',
-                    },
-                    op: 'is',
-                    right: {
-                        type: 'value',
-                        value: null,
-                    },
-                },
-                {
-                    type: 'logical',
-                    op: 'or',
-                    nodes: [
-                        {
-                            type: 'binary',
-                            left: {
-                                type: 'ref',
-                                ref: 'publishedAt',
-                            },
-                            op: 'is not',
-                            right: {
-                                type: 'value',
-                                value: null,
-                            },
-                        },
-                        {
-                            type: 'binary',
-                            left: {
-                                type: 'ref',
-                                ref: 'status',
-                            },
-                            op: '=',
-                            right: {
-                                type: 'value',
-                                value: 'PUBLISHED',
-                            },
-                        },
-                    ],
-                },
-            ],
-        });
-
-        expect(
-            resolveAstPredicateInput(
-                articleUniqueIndexes.category_ref_unique.predicate,
-                eb,
-            ),
-        ).toEqual({
-            type: 'binary',
-            left: {
-                type: 'ref',
-                ref: 'categoryId',
-            },
-            op: '=',
-            right: {
-                type: 'ref',
-                ref: 'id',
-            },
-        });
-    });
-
-    it('resolves predicate callback input', () => {
-        type ArticleTable = {
-            deletedAt: Date | null;
-        };
-
-        const eb =
-            createAstPredicateExpressionBuilder<
-                AstPredicateColumnRef<ArticleTable>
-            >();
-
-        expect(
-            resolveAstPredicateInput(
-                ({ eb }) => eb('deletedAt', 'is', null),
-                eb,
-            ),
-        ).toEqual({
-            type: 'binary',
-            left: {
-                type: 'ref',
-                ref: 'deletedAt',
-            },
-            op: 'is',
-            right: {
-                type: 'value',
+              type: "binary",
+              left: {
+                type: "ref",
+                ref: "deletedAt",
+              },
+              op: "is",
+              right: {
+                type: "value",
                 value: null,
+              },
             },
-        });
+            {
+              type: "binary",
+              left: {
+                type: "ref",
+                ref: "publishedAt",
+              },
+              op: "is not",
+              right: {
+                type: "value",
+                value: null,
+              },
+            },
+          ],
+        },
+      ],
     });
+  });
+
+  it("builds callback expressions", () => {
+    type ArticleTable = {
+      status: string;
+      deletedAt: Date | null;
+    };
+
+    expect(
+      createAstPredicateWhere<ArticleTable>(({ eb, and }) =>
+        and([eb("deletedAt", "is", null), eb("status", "=", "PUBLISHED")]),
+      ),
+    ).toEqual({
+      type: "logical",
+      op: "and",
+      nodes: [
+        {
+          type: "binary",
+          left: {
+            type: "ref",
+            ref: "deletedAt",
+          },
+          op: "is",
+          right: {
+            type: "value",
+            value: null,
+          },
+        },
+        {
+          type: "binary",
+          left: {
+            type: "ref",
+            ref: "status",
+          },
+          op: "=",
+          right: {
+            type: "value",
+            value: "PUBLISHED",
+          },
+        },
+      ],
+    });
+  });
+
+  it("builds database-scoped ref-to-ref expressions", () => {
+    type DB = {
+      Article: {
+        categoryId: string;
+        workspaceId: string;
+      };
+      Category: {
+        id: string;
+        workspaceId: string;
+      };
+    };
+
+    const db = createAstPredicateDatabase<DB>();
+
+    expect(
+      db.where(({ eb, and, ref }) =>
+        and([
+          eb("Article.categoryId", "=", ref("Category.id")),
+          eb("Article.workspaceId", "=", ref("Category.workspaceId")),
+        ]),
+      ),
+    ).toEqual({
+      type: "logical",
+      op: "and",
+      nodes: [
+        {
+          type: "binary",
+          left: {
+            type: "ref",
+            ref: "Article.categoryId",
+          },
+          op: "=",
+          right: {
+            type: "ref",
+            ref: "Category.id",
+          },
+        },
+        {
+          type: "binary",
+          left: {
+            type: "ref",
+            ref: "Article.workspaceId",
+          },
+          op: "=",
+          right: {
+            type: "ref",
+            ref: "Category.workspaceId",
+          },
+        },
+      ],
+    });
+  });
+
+  it("builds database-scoped alias refs", () => {
+    type DB = {
+      Article: {
+        categoryId: string;
+        workspaceId: string;
+      };
+      Category: {
+        id: string;
+        workspaceId: string;
+      };
+    };
+
+    const db = createAstPredicateDatabase<
+      DB,
+      {
+        a: "Article";
+        c: "Category";
+      }
+    >();
+
+    expect(
+      db.where(({ eb, and, ref }) =>
+        and([
+          eb("a.categoryId", "=", ref("c.id")),
+          eb("a.workspaceId", "=", ref("c.workspaceId")),
+        ]),
+      ),
+    ).toEqual({
+      type: "logical",
+      op: "and",
+      nodes: [
+        {
+          type: "binary",
+          left: {
+            type: "ref",
+            ref: "a.categoryId",
+          },
+          op: "=",
+          right: {
+            type: "ref",
+            ref: "c.id",
+          },
+        },
+        {
+          type: "binary",
+          left: {
+            type: "ref",
+            ref: "a.workspaceId",
+          },
+          op: "=",
+          right: {
+            type: "ref",
+            ref: "c.workspaceId",
+          },
+        },
+      ],
+    });
+  });
+
+  it("builds table-scoped unique indexes", () => {
+    type PredicateTestDatabase = {
+      "schema.Articles": {
+        id: string;
+        workspaceId: string;
+        categoryId: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        deletedAt: Date | null;
+        publishedAt: Date | null;
+        createdAt: Date;
+        status: string;
+      };
+    };
+
+    const predicateDb = createAstPredicateDatabase<PredicateTestDatabase>();
+    const articleTable = predicateDb.table("schema.Articles");
+
+    const articleUniqueIndexes = articleTable.uniqueIndexes({
+      pkey: {
+        columns: ["id"],
+      },
+      slug_unique: {
+        columns: ["workspaceId", "categoryId", "slug"],
+        predicate: ({ eb }) => eb("deletedAt", "is", null),
+      },
+      nullable_description_unique: {
+        columns: ["workspaceId", "categoryId", "description"],
+      },
+      published_slug_unique: {
+        columns: ["workspaceId", "categoryId", "slug"],
+        predicate: ({ eb, and, or }) =>
+          and([
+            eb("deletedAt", "is", null),
+            or([
+              eb("publishedAt", "is not", null),
+              eb("status", "=", "PUBLISHED"),
+            ]),
+          ]),
+      },
+      category_ref_unique: {
+        columns: ["workspaceId", "categoryId", "slug"],
+        predicate: ({ eb, ref }) => eb("categoryId", "=", ref("id")),
+      },
+    });
+
+    expect(articleUniqueIndexes.pkey.columns).toEqual(["id"]);
+
+    expect(articleUniqueIndexes.slug_unique.columns).toEqual([
+      "workspaceId",
+      "categoryId",
+      "slug",
+    ]);
+
+    expect(articleUniqueIndexes.nullable_description_unique.columns).toEqual([
+      "workspaceId",
+      "categoryId",
+      "description",
+    ]);
+
+    expect(articleUniqueIndexes.published_slug_unique.columns).toEqual([
+      "workspaceId",
+      "categoryId",
+      "slug",
+    ]);
+
+    expect(articleUniqueIndexes.category_ref_unique.columns).toEqual([
+      "workspaceId",
+      "categoryId",
+      "slug",
+    ]);
+  });
+
+  it("resolves table-scoped unique index predicates", () => {
+    type PredicateTestDatabase = {
+      "schema.Articles": {
+        id: string;
+        workspaceId: string;
+        categoryId: string;
+        slug: string;
+        title: string;
+        description: string | null;
+        deletedAt: Date | null;
+        publishedAt: Date | null;
+        createdAt: Date;
+        status: string;
+      };
+    };
+
+    const predicateDb = createAstPredicateDatabase<PredicateTestDatabase>();
+    const articleTable = predicateDb.table("schema.Articles");
+
+    const articleUniqueIndexes = articleTable.uniqueIndexes({
+      published_slug_unique: {
+        columns: ["workspaceId", "categoryId", "slug"],
+        predicate: ({ eb, and, or }) =>
+          and([
+            eb("deletedAt", "is", null),
+            or([
+              eb("publishedAt", "is not", null),
+              eb("status", "=", "PUBLISHED"),
+            ]),
+          ]),
+      },
+      category_ref_unique: {
+        columns: ["workspaceId", "categoryId", "slug"],
+        predicate: ({ eb, ref }) => eb("categoryId", "=", ref("id")),
+      },
+    });
+
+    const eb = articleTable.expressionBuilder();
+
+    expect(
+      resolveAstPredicateInput(
+        articleUniqueIndexes.published_slug_unique.predicate,
+        eb,
+      ),
+    ).toEqual({
+      type: "logical",
+      op: "and",
+      nodes: [
+        {
+          type: "binary",
+          left: {
+            type: "ref",
+            ref: "deletedAt",
+          },
+          op: "is",
+          right: {
+            type: "value",
+            value: null,
+          },
+        },
+        {
+          type: "logical",
+          op: "or",
+          nodes: [
+            {
+              type: "binary",
+              left: {
+                type: "ref",
+                ref: "publishedAt",
+              },
+              op: "is not",
+              right: {
+                type: "value",
+                value: null,
+              },
+            },
+            {
+              type: "binary",
+              left: {
+                type: "ref",
+                ref: "status",
+              },
+              op: "=",
+              right: {
+                type: "value",
+                value: "PUBLISHED",
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(
+      resolveAstPredicateInput(
+        articleUniqueIndexes.category_ref_unique.predicate,
+        eb,
+      ),
+    ).toEqual({
+      type: "binary",
+      left: {
+        type: "ref",
+        ref: "categoryId",
+      },
+      op: "=",
+      right: {
+        type: "ref",
+        ref: "id",
+      },
+    });
+  });
+
+  it("resolves predicate callback input", () => {
+    type ArticleTable = {
+      deletedAt: Date | null;
+    };
+
+    const eb =
+      createAstPredicateExpressionBuilder<
+        AstPredicateColumnRef<ArticleTable>
+      >();
+
+    expect(
+      resolveAstPredicateInput(({ eb }) => eb("deletedAt", "is", null), eb),
+    ).toEqual({
+      type: "binary",
+      left: {
+        type: "ref",
+        ref: "deletedAt",
+      },
+      op: "is",
+      right: {
+        type: "value",
+        value: null,
+      },
+    });
+  });
+
+  it("keeps unique index columns narrow while predicate can use any table column", () => {
+    type BillingTable = {
+      code: string;
+      type: string;
+      documentNumber: string;
+      deletedAt: Date | null;
+      createdAt: Date;
+    };
+
+    type DB = {
+      Billing: BillingTable;
+    };
+
+    const db = createAstPredicateDatabase<DB>();
+    const billing = db.table("Billing");
+
+    const uniqueIndexes = billing.uniqueIndexes({
+      pkey: {
+        columns: ["code"],
+      },
+      type_and_number: {
+        columns: ["type", "documentNumber"],
+        predicate: ({ eb }) => eb("deletedAt", "is not", null),
+      },
+    });
+
+    expect(uniqueIndexes.pkey.columns).toEqual(["code"]);
+    expect(uniqueIndexes.type_and_number.columns).toEqual([
+      "type",
+      "documentNumber",
+    ]);
+
+    expect(
+      resolveAstPredicateInput(
+        uniqueIndexes.type_and_number.predicate,
+        billing.expressionBuilder(),
+      ),
+    ).toEqual({
+      type: "binary",
+      left: {
+        type: "ref",
+        ref: "deletedAt",
+      },
+      op: "is not",
+      right: {
+        type: "value",
+        value: null,
+      },
+    });
+
+    type PKeyColumn = (typeof uniqueIndexes.pkey.columns)[number];
+
+    const pkeyColumn: PKeyColumn = "code";
+    expect(pkeyColumn).toBe("code");
+
+    // @ts-expect-error - pkey columns must stay narrowed to "code"
+    const invalidPKeyColumn: PKeyColumn = "deletedAt";
+    expect(invalidPKeyColumn).toBe("deletedAt");
+  });
 });

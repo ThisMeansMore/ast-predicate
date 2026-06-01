@@ -109,8 +109,8 @@ export type AstPredicateInput<TRef extends string = string> =
 export type AstPredicateStringKeyOf<TValue> = Extract<keyof TValue, string>;
 
 export type AstPredicateTableModel<
-    TDB extends object,
-    TTableName extends AstPredicateStringKeyOf<TDB>,
+  TDB extends object,
+  TTableName extends AstPredicateStringKeyOf<TDB>,
 > = Extract<TDB[TTableName], object>;
 
 export type AstPredicateColumnRef<TTable extends object> =
@@ -118,9 +118,10 @@ export type AstPredicateColumnRef<TTable extends object> =
 
 export type AstPredicateTableUniqueIndex<
   TTable extends object,
-  TColumn extends AstPredicateColumnRef<TTable> = AstPredicateColumnRef<TTable>,
+  TColumns extends readonly AstPredicateColumnRef<TTable>[] =
+    readonly AstPredicateColumnRef<TTable>[],
 > = {
-  readonly columns: readonly TColumn[];
+  readonly columns: TColumns;
   readonly predicate?: AstPredicateInput<AstPredicateColumnRef<TTable>>;
 };
 
@@ -173,24 +174,24 @@ export type AstPredicateDatabaseAnyRef<
 > = AstPredicateDatabaseRef<TDB> | AstPredicateDatabaseAliasRef<TDB, TAliases>;
 
 export type AstPredicateDatabase<
-    TDB extends object,
-    TAliases extends AstPredicateDatabaseAliasMap<TDB> = Record<never, never>,
+  TDB extends object,
+  TAliases extends AstPredicateDatabaseAliasMap<TDB> = Record<never, never>,
 > = {
-    readonly table: <TTableName extends AstPredicateStringKeyOf<TDB>>(
+  readonly table: <TTableName extends AstPredicateStringKeyOf<TDB>>(
     table: TTableName,
-) => AstPredicateTableBuilder<AstPredicateTableModel<TDB, TTableName>>;
+  ) => AstPredicateTableBuilder<AstPredicateTableModel<TDB, TTableName>>;
 
-    readonly ref: (
-        ref: AstPredicateDatabaseAnyRef<TDB, TAliases>,
-    ) => AstPredicateRefOperand<AstPredicateDatabaseAnyRef<TDB, TAliases>>;
+  readonly ref: (
+    ref: AstPredicateDatabaseAnyRef<TDB, TAliases>,
+  ) => AstPredicateRefOperand<AstPredicateDatabaseAnyRef<TDB, TAliases>>;
 
-    readonly expressionBuilder: () => AstPredicateExpressionBuilder<
-        AstPredicateDatabaseAnyRef<TDB, TAliases>
-    >;
+  readonly expressionBuilder: () => AstPredicateExpressionBuilder<
+    AstPredicateDatabaseAnyRef<TDB, TAliases>
+  >;
 
-    readonly where: (
-        factory: AstPredicateExpressionFactory<
-            AstPredicateDatabaseAnyRef<TDB, TAliases>
-        >,
-    ) => AstPredicateNode<AstPredicateDatabaseAnyRef<TDB, TAliases>>;
+  readonly where: (
+    factory: AstPredicateExpressionFactory<
+      AstPredicateDatabaseAnyRef<TDB, TAliases>
+    >,
+  ) => AstPredicateNode<AstPredicateDatabaseAnyRef<TDB, TAliases>>;
 };
