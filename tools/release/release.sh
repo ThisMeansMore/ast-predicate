@@ -183,7 +183,7 @@ npm pack --dry-run
 
 echo "==> Release diff"
 
-git diff -- package.json package-lock.json "$CHANGELOG_FILE" || true
+git --no-pager diff -- package.json package-lock.json "$CHANGELOG_FILE" || true
 
 read -r -p "Create git tag, GitHub release, and publish $NEW_VERSION to npm? [y/N] " CONFIRM_RELEASE
 
