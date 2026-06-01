@@ -3,6 +3,14 @@
 set -euo pipefail
 
 RELEASE_TYPE="${1:-}"
+VERSION_BUMPED=""
+
+rollback_version_bump() {
+  if [[ -n "$VERSION_BUMPED" ]]; then
+    echo "==> Rolling back local version bump"
+    git checkout -- package.json package-lock.json 2>/dev/null || git checkout -- package.json
+  fi
+}
 
 if [[ "$RELEASE_TYPE" != "patch" && "$RELEASE_TYPE" != "minor" ]]; then
   echo "Usage: ./release.sh patch|minor"
@@ -85,6 +93,7 @@ fi
 echo "==> Bumping version"
 
 NEW_VERSION="$(npm version "$RELEASE_TYPE" --no-git-tag-version)"
+VERSION_BUMPED="true"
 NEW_VERSION_NUMBER="${NEW_VERSION#v}"
 
 echo "New version: $NEW_VERSION"
@@ -93,6 +102,21 @@ echo "==> Verifying npm version does not already exist"
 
 if npm view "$PACKAGE_NAME@$NEW_VERSION_NUMBER" version > /dev/null 2>&1; then
   echo "Package $PACKAGE_NAME@$NEW_VERSION_NUMBER already exists on npm."
+  rollback_version_bump
+  exit 1
+fi
+
+echo "==> Verifying git tag does not already exist"
+
+if git rev-parse -q --verify "refs/tags/$NEW_VERSION" > /dev/null; then
+  echo "Git tag $NEW_VERSION already exists locally."
+  rollback_version_bump
+  exit 1
+fi
+
+if git ls-remote --exit-code --tags origin "refs/tags/$NEW_VERSION" > /dev/null 2>&1; then
+  echo "Git tag $NEW_VERSION already exists on origin."
+  rollback_version_bump
   exit 1
 fi
 
@@ -116,6 +140,7 @@ echo "==> Committing release version"
 
 git add package.json package-lock.json 2>/dev/null || git add package.json
 git commit -m "chore(release): $NEW_VERSION"
+VERSION_BUMPED=""
 
 echo "==> Creating git tag"
 
