@@ -1,4 +1,3 @@
-````md
 # ast-predicate
 
 Framework-agnostic TypeScript predicate AST utilities for building, validating, and adapting typed predicate expressions.
@@ -437,6 +436,3 @@ ast-predicate-sequelize
 ## License
 
 MIT
-
-```
-```
