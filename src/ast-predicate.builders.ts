@@ -140,7 +140,7 @@ export function createAstPredicateTableBuilder<
     where: (factory) => createAstPredicateWhere<TTable>(factory),
 
     uniqueIndexes: <
-      TUniqueIndexes extends AstPredicateTableUniqueIndexes<TTable>,
+      const TUniqueIndexes extends AstPredicateTableUniqueIndexes<TTable>,
     >(
       indexes: TUniqueIndexes,
     ) => indexes,

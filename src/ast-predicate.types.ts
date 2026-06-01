@@ -139,7 +139,7 @@ export type AstPredicateTableBuilder<TTable extends object> = {
   ) => AstPredicateNode<AstPredicateColumnRef<TTable>>;
 
   readonly uniqueIndexes: <
-    TUniqueIndexes extends AstPredicateTableUniqueIndexes<TTable>,
+    const TUniqueIndexes extends AstPredicateTableUniqueIndexes<TTable>,
   >(
     indexes: TUniqueIndexes,
   ) => TUniqueIndexes;
