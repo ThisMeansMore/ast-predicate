@@ -2,6 +2,8 @@
 
 Framework-agnostic TypeScript predicate AST utilities for building, validating, and adapting typed predicate expressions.
 
+`ast-predicate` has the ambition to be a companion to tools like Kysely: not a replacement, but a small utility layer for custom implementation details that are often too application-specific for general-purpose query builders, while still making those details easier to model, reuse, and adapt.
+
 `ast-predicate` provides a small predicate AST and typed builders. It does not execute queries and does not depend on a database driver, ORM, query builder, or runtime framework.
 
 ## Why ast-predicate exists
@@ -13,6 +15,8 @@ Many mature backend codebases contain filtering rules in several forms at once: 
 With `ast-predicate`, a service can define filters or metadata once using a framework-agnostic AST. Adapters can then translate the same predicate into Sequelize, Kysely, raw SQL, validation logic, or tests.
 
 This makes the package useful as a small binding layer during incremental migration or mixed-stack development. It does not replace an ORM or query builder; it only describes predicate logic in a neutral format that surrounding code can adapt to its own execution layer.
+
+The builder syntax is intentionally SQL/Kysely-like. The goal is to keep the developer experience familiar, reduce the pain of switching between related tools, and make adoption easier in codebases where people already work with query builders, ORMs, and SQL-oriented patterns.
 
 ## Installation
 
