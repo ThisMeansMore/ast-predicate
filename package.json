@@ -1,6 +1,6 @@
 {
   "name": "ast-predicate",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Framework-agnostic TypeScript predicate AST utilities for building, validating, and transforming filter expressions.",
   "type": "module",
   "license": "MIT",
