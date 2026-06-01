@@ -1,3 +1,12 @@
+## v0.4.0 - 2026-06-01
+
+### Changed
+
+- Updated table metadata predicates to use explicit table-scoped AST nodes created with `table.where(...)`.
+- Improved `uniqueIndexes()` typing so index column lists stay narrow while predicates can still reference any table column.
+- Updated README and public JSDoc examples to document the safer `table.where(...)` metadata pattern.
+- Added tests for mapped database table types and unique-index predicate typing.
+
 # Changelog
 
 ## 0.3.0
