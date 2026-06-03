@@ -1,3 +1,14 @@
+## v0.5.0 - 2026-06-03
+
+### Added
+
+- Added callback support to `uniqueIndexes(...)`, allowing table-scoped predicate helpers such as `eb`, `and`, `or`, `not`, `ref`, and `val` to be used directly while defining unique-index metadata.
+- Added default unique-index key enforcement for `createAstPredicateTableBuilder(...)`. The default required key is `pkey`, a custom key can be provided as the second generic parameter, and `never` disables the requirement.
+
+### Changed
+
+- Updated table unique-index examples to prefer the callback form when defining inline predicates.
+
 ## v0.4.1 - 2026-06-01
 
 unique-index property `predicate` changed to `where`
