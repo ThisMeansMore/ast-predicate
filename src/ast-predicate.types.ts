@@ -125,12 +125,39 @@ export type AstPredicateTableUniqueIndex<
   readonly where?: AstPredicateNode<AstPredicateColumnRef<TTable>>;
 };
 
+export type AstPredicateTableUniqueIndexesFactoryContext<
+  TTable extends object,
+> = AstPredicateExpressionContext<AstPredicateColumnRef<TTable>> & {
+  readonly expressionBuilder: () => AstPredicateExpressionBuilder<
+    AstPredicateColumnRef<TTable>
+  >;
+  readonly where: (
+    factory: AstPredicateExpressionFactory<AstPredicateColumnRef<TTable>>,
+  ) => AstPredicateNode<AstPredicateColumnRef<TTable>>;
+};
+
 export type AstPredicateTableUniqueIndexes<TTable extends object> = Record<
   string,
   AstPredicateTableUniqueIndex<TTable>
 >;
 
-export type AstPredicateTableBuilder<TTable extends object> = {
+export type AstPredicateTableUniqueIndexesWithDefault<
+  TTable extends object,
+  TDefaultUniqueIndexName extends string = never,
+> = AstPredicateTableUniqueIndexes<TTable> &
+  Record<TDefaultUniqueIndexName, AstPredicateTableUniqueIndex<TTable>>;
+
+export type AstPredicateTableUniqueIndexesFactory<
+  TTable extends object,
+  TUniqueIndexes extends AstPredicateTableUniqueIndexes<TTable>,
+> = (
+  context: AstPredicateTableUniqueIndexesFactoryContext<TTable>,
+) => TUniqueIndexes;
+
+export type AstPredicateTableBuilder<
+  TTable extends object,
+  TDefaultUniqueIndexName extends string = 'pkey',
+> = {
   readonly expressionBuilder: () => AstPredicateExpressionBuilder<
     AstPredicateColumnRef<TTable>
   >;
@@ -140,9 +167,14 @@ export type AstPredicateTableBuilder<TTable extends object> = {
   ) => AstPredicateNode<AstPredicateColumnRef<TTable>>;
 
   readonly uniqueIndexes: <
-    const TUniqueIndexes extends AstPredicateTableUniqueIndexes<TTable>,
+    const TUniqueIndexes extends AstPredicateTableUniqueIndexesWithDefault<
+      TTable,
+      TDefaultUniqueIndexName
+    >,
   >(
-    indexes: TUniqueIndexes,
+    indexesOrFactory:
+      | TUniqueIndexes
+      | AstPredicateTableUniqueIndexesFactory<TTable, TUniqueIndexes>,
   ) => TUniqueIndexes;
 };
 

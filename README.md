@@ -213,74 +213,101 @@ The generated AST keeps the alias strings as given.
     },
 }
 ```
-
 ## Table metadata helpers
-
 The database builder can create table-scoped metadata helpers. The first supported helper is `uniqueIndexes`.
 
-Use the table builder to create both the unique-index metadata and any predicate used by that metadata.
+Use the table builder to create unique-index metadata. `uniqueIndexes()` accepts either a metadata object or a callback. The callback form is preferred when an index predicate is needed, because it exposes the table-scoped expression context directly.
 
-```ts
-import { createAstPredicateDatabase } from 'ast-predicate';
+    import { createAstPredicateDatabase } from 'ast-predicate';
 
-type PredicateTestDatabase = {
-    'schema.Articles': {
-        id: string;
-        workspaceId: string;
-        categoryId: string;
-        slug: string;
-        title: string;
-        description: string | null;
-        deletedAt: Date | null;
-        publishedAt: Date | null;
-        createdAt: Date;
-        status: string;
+    type PredicateTestDatabase = {
+        'schema.Articles': {
+            id: string;
+            workspaceId: string;
+            categoryId: string;
+            slug: string;
+            title: string;
+            description: string | null;
+            deletedAt: Date | null;
+            publishedAt: Date | null;
+            createdAt: Date;
+            status: string;
+        };
     };
-};
 
-const predicateDb = createAstPredicateDatabase<PredicateTestDatabase>();
-const articles = predicateDb.table('schema.Articles');
+    const predicateDb = createAstPredicateDatabase<PredicateTestDatabase>();
+    const articles = predicateDb.table('schema.Articles');
 
-const articleUniqueIndexes = articles.uniqueIndexes({
-    pkey: {
-        columns: ['id'],
-    },
-    slug_unique: {
-        columns: ['workspaceId', 'categoryId', 'slug'],
-        where: articles.where(({ eb }) =>
-            eb('deletedAt', 'is', null),
-        ),
-    },
-    nullable_description_unique: {
-        columns: ['workspaceId', 'categoryId', 'description'],
-    },
-    published_slug_unique: {
-        columns: ['workspaceId', 'categoryId', 'slug'],
-        where: articles.where(({ eb, and, or }) =>
-            and([
+    const articleUniqueIndexes = articles.uniqueIndexes(({ eb, and, or, ref }) => ({
+        pkey: {
+            columns: ['id'],
+        },
+        slug_unique: {
+            columns: ['workspaceId', 'categoryId', 'slug'],
+            where: eb('deletedAt', 'is', null),
+        },
+        nullable_description_unique: {
+            columns: ['workspaceId', 'categoryId', 'description'],
+        },
+        published_slug_unique: {
+            columns: ['workspaceId', 'categoryId', 'slug'],
+            where: and([
                 eb('deletedAt', 'is', null),
                 or([
                     eb('publishedAt', 'is not', null),
                     eb('status', '=', 'PUBLISHED'),
                 ]),
             ]),
-        ),
-    },
-    category_ref_unique: {
-        columns: ['workspaceId', 'categoryId', 'slug'],
-        where: articles.where(({ eb, ref }) =>
-            eb('categoryId', '=', ref('id')),
-        ),
-    },
-});
-```
+        },
+        category_ref_unique: {
+            columns: ['workspaceId', 'categoryId', 'slug'],
+            where: eb('categoryId', '=', ref('id')),
+        },
+    }));
 
-`uniqueIndexes()` preserves the metadata object as-is. Predicate values should be AST nodes created with the same table builder, usually through `table.where(...)`.
+The object form is still supported. It is useful when predicates are already built elsewhere.
+
+    const articleUniqueIndexes = articles.uniqueIndexes({
+        pkey: {
+            columns: ['id'],
+        },
+        slug_unique: {
+            columns: ['workspaceId', 'categoryId', 'slug'],
+            where: articles.where(({ eb }) =>
+                eb('deletedAt', 'is', null),
+            ),
+        },
+    });
+
+By default, `uniqueIndexes()` requires a unique index named `pkey`.
+
+    createAstPredicateTableBuilder<ArticleTable>().uniqueIndexes({
+        pkey: {
+            columns: ['id'],
+        },
+    });
+
+Pass another default key name to require a different index name.
+
+    createAstPredicateTableBuilder<ArticleTable, 'article_pkey'>().uniqueIndexes({
+        article_pkey: {
+            columns: ['id'],
+        },
+    });
+
+Pass `never` to disable the required default unique index.
+
+    createAstPredicateTableBuilder<ArticleTable, never>().uniqueIndexes({
+        slug_unique: {
+            columns: ['workspaceId', 'slug'],
+        },
+    });
+
+`uniqueIndexes()` preserves the metadata object as-is. Predicate values are stored as AST nodes.
 
 This keeps column lists narrow for unique-index filter typing, while predicates can still reference any column from the table.
 
-The resulting metadata is useful as adapter input. For example, an adapter can read `columns` to build unique-index filters and use `predicate` as an already-built AST node.
-
+The resulting metadata is useful as adapter input. For example, an adapter can read `columns` to build unique-index filters and use `where` as an already-built AST node.
 ## Namespace API
 
 The package also exposes the same main entry points through the `AstPredicate` namespace.
@@ -323,12 +350,31 @@ or
 not
 ```
 
-For table metadata such as `uniqueIndexes()`, prefer resolving predicates before storing them in the metadata object:
+For table metadata such as `uniqueIndexes()`, prefer the callback form when defining predicates inline:
+
+```ts
+const indexes = articles.uniqueIndexes(({ eb }) => ({
+    pkey: {
+        columns: ['id'],
+    },
+    slug_unique: {
+        columns: ['workspaceId', 'categoryId', 'slug'],
+        where: eb('deletedAt', 'is', null),
+    },
+}));
+```
+
+This keeps predicate inference inside the table-scoped callback and stores only resolved AST nodes in the metadata object.
+
+The object form is still supported. It is useful when predicates are built elsewhere or when you want to reuse the table helper explicitly:
 
 ```ts
 const articles = predicateDb.table('schema.Articles');
 
 const indexes = articles.uniqueIndexes({
+    pkey: {
+        columns: ['id'],
+    },
     slug_unique: {
         columns: ['workspaceId', 'categoryId', 'slug'],
         where: articles.where(({ eb }) =>
@@ -337,8 +383,6 @@ const indexes = articles.uniqueIndexes({
     },
 });
 ```
-
-This avoids relying on nested callback inference inside large metadata objects and keeps the metadata shape simple for adapters.
 
 ## AST node shape
 

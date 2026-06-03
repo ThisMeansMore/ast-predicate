@@ -14,7 +14,8 @@ import type {
   AstPredicateStringKeyOf,
   AstPredicateTableBuilder,
   AstPredicateTableModel,
-  AstPredicateTableUniqueIndexes,
+  AstPredicateTableUniqueIndexesFactory,
+  AstPredicateTableUniqueIndexesWithDefault,
   AstPredicateValue,
   AstPredicateValueOperand,
 } from "./ast-predicate.types.js";
@@ -130,20 +131,84 @@ export function createAstPredicateWhere<TTable extends object>(
   return factory(createAstPredicateExpressionContext(eb));
 }
 
+/**
+ * Creates a table-scoped AST predicate builder.
+ *
+ * The builder can create table-scoped predicates through `where(...)`,
+ * expose a typed expression builder through `expressionBuilder()`, and
+ * define table unique-index metadata through `uniqueIndexes(...)`.
+ *
+ * By default, `uniqueIndexes(...)` requires a unique index named `pkey`.
+ * Pass a different string as `TDefaultUniqueIndexName` to require another
+ * index name, or pass `never` to disable the required default index.
+ *
+ * @typeParam TTable - Table attributes used for column-name validation.
+ * @typeParam TDefaultUniqueIndexName - Required unique-index key. Defaults to `pkey`.
+ *
+ * @example
+ * ```ts
+ * const table = createAstPredicateTableBuilder<ArticleTable>();
+ *
+ * const uniqueIndexes = table.uniqueIndexes(({ eb }) => ({
+ *   pkey: {
+ *     columns: ['code'],
+ *   },
+ *   active_slug_unique: {
+ *     columns: ['workspaceId', 'slug'],
+ *     where: eb('deletedAt', 'is', null),
+ *   },
+ * }));
+ * ```
+ * 
+ * @example
+ * ```ts
+ * const table = createAstPredicateTableBuilder<ArticleTable, never>();
+ *
+ * const uniqueIndexes = table.uniqueIndexes({
+ *   active_slug_unique: {
+ *     columns: ['workspaceId', 'slug'],
+ *   },
+ * });
+ * ```
+ */
 export function createAstPredicateTableBuilder<
   TTable extends object,
->(): AstPredicateTableBuilder<TTable> {
+  TDefaultUniqueIndexName extends string = 'pkey',
+>(): AstPredicateTableBuilder<TTable, TDefaultUniqueIndexName> {
+  const expressionBuilder = () =>
+    createAstPredicateExpressionBuilder<AstPredicateColumnRef<TTable>>();
+
+  const where = (
+    factory: AstPredicateExpressionFactory<AstPredicateColumnRef<TTable>>,
+  ) => createAstPredicateWhere<TTable>(factory);
+
+  const uniqueIndexes = <
+    const TUniqueIndexes extends AstPredicateTableUniqueIndexesWithDefault<
+      TTable,
+      TDefaultUniqueIndexName
+    >,
+  >(
+    indexesOrFactory:
+      | TUniqueIndexes
+      | AstPredicateTableUniqueIndexesFactory<TTable, TUniqueIndexes>,
+  ): TUniqueIndexes => {
+    if (typeof indexesOrFactory === "function") {
+      const eb = expressionBuilder();
+
+      return indexesOrFactory({
+        expressionBuilder,
+        where,
+        ...createAstPredicateExpressionContext(eb),
+      });
+    }
+
+    return indexesOrFactory;
+  };
+
   return {
-    expressionBuilder: () =>
-      createAstPredicateExpressionBuilder<AstPredicateColumnRef<TTable>>(),
-
-    where: (factory) => createAstPredicateWhere<TTable>(factory),
-
-    uniqueIndexes: <
-      const TUniqueIndexes extends AstPredicateTableUniqueIndexes<TTable>,
-    >(
-      indexes: TUniqueIndexes,
-    ) => indexes,
+    expressionBuilder,
+    where,
+    uniqueIndexes,
   };
 }
 
